@@ -10,8 +10,11 @@ environment:
   sdk: ^3.6.1
 
 dependencies:
+  cloud_firestore: ^5.6.2
+  collection: ^1.19.0
   firebase_auth: ^5.4.1
   firebase_core: ^3.10.1
+  firebase_messaging: ^15.2.1
   flutter:
     sdk: flutter
   flutter_localizations:
