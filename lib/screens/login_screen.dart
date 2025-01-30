@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:total_flutter/models/user_role.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:total_flutter/screens/driver_home_screen.dart';
 import 'package:total_flutter/screens/supervisor_home_screen.dart';
 import 'package:total_flutter/services/firebase_service.dart';
@@ -19,122 +19,323 @@ class LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _firebaseService = FirebaseService();
   String _role = 'driver';
+  bool _isLoading = false;
+  bool _isPasswordVisible = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordController,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(),
-                ),
-                obscureText: true,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your password';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-              DropdownButton<String>(
-                value: _role,
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _role = newValue!;
-                  });
-                },
-                items: <String>['driver', 'supervisor']
-                    .map<DropdownMenuItem<String>>((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(value),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _handleLogin,
-                child: const Text('Login'),
-              ),
-            ],
+      backgroundColor: theme.colorScheme.surface,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 48),
+                _buildHeader(),
+                const SizedBox(height: 48),
+                _buildLoginForm(),
+              ]
+                  .animate(interval: 50.ms)
+                  .fadeIn(duration: 500.ms)
+                  .slideY(begin: 0.3),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Future<void> _handleLogin() async {
-    if (_formKey.currentState!.validate()) {
-      try {
-        final userCredentials = await _firebaseService.signIn(
-          _emailController.text,
-          _passwordController.text,
-          _role, // Pass the selected role
-        );
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Welcome Back',
+          style: Theme.of(context).textTheme.headlineLarge,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Sign in to continue',
+          style: GoogleFonts.inter(
+            fontSize: 16,
+            color: const Color(0xFF697386),
+          ),
+        ),
+      ],
+    );
+  }
 
-        final userId = userCredentials.user?.uid;
+  Widget _buildLoginForm() {
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildEmailField(),
+          const SizedBox(height: 16),
+          _buildPasswordField(),
+          const SizedBox(height: 24),
+          _buildRoleSelector(),
+          const SizedBox(height: 32),
+          _buildLoginButton(),
+        ],
+      ),
+    );
+  }
 
-        if (userId == null) {
-          throw FirebaseAuthException(
-            code: 'user-not-found',
-            message: 'User not found',
-          );
+  Widget _buildEmailField() {
+    return TextFormField(
+      controller: _emailController,
+      keyboardType: TextInputType.emailAddress,
+      style: Theme.of(context).textTheme.bodyMedium,
+      decoration: _buildInputDecoration(
+        label: 'Email',
+        hint: 'Enter your email',
+        icon: Icons.email_outlined,
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter your email';
         }
+        if (!value.contains('@')) {
+          return 'Please enter a valid email';
+        }
+        return null;
+      },
+      enabled: !_isLoading,
+    );
+  }
 
-        final user = await _firebaseService.getCurrentUser(userId, _role);
+  Widget _buildPasswordField() {
+    return TextFormField(
+      controller: _passwordController,
+      obscureText: !_isPasswordVisible,
+      style: GoogleFonts.inter(),
+      decoration: _buildInputDecoration(
+        label: 'Password',
+        hint: 'Enter your password',
+        icon: Icons.lock_outline,
+      ).copyWith(
+        suffixIcon: IconButton(
+          icon: Icon(
+            _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+            color: Colors.grey,
+          ),
+          onPressed: () =>
+              setState(() => _isPasswordVisible = !_isPasswordVisible),
+        ),
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter your password';
+        }
+        if (value.length < 6) {
+          return 'Password must be at least 6 characters';
+        }
+        return null;
+      },
+      enabled: !_isLoading,
+    );
+  }
 
-        if (user != null) {
-          print('User found: $user');
-          // Update FCM token for notifications
-          await _firebaseService.updateFCMToken(userId, _role);
-          print('User can update FCMToken: $user');
-          if (!mounted) return;
+  Widget _buildRoleSelector() {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _role,
+          isExpanded: true,
+          hint: Text(
+            'Select Role',
+            style: GoogleFonts.inter(),
+          ),
+          items: ['driver', 'supervisor'].map((String value) {
+            return DropdownMenuItem<String>(
+              value: value,
+              child: Text(
+                value[0].toUpperCase() + value.substring(1),
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            );
+          }).toList(),
+          onChanged: _isLoading
+              ? null
+              : (String? newValue) {
+                  setState(() => _role = newValue!);
+                },
+        ),
+      ),
+    );
+  }
 
-          // Navigate to appropriate screen based on role
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => _role == 'supervisor'
-                  ? const SupervisorHomeScreen()
-                  : DriverHomeScreen(driverId: userId),
+  Widget _buildLoginButton() {
+    return ElevatedButton(
+      onPressed: _isLoading ? null : _handleLogin,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF2563EB),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        elevation: 0,
+      ),
+      child: _isLoading
+          ? const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
+          : Text(
+              'Sign In',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          );
-        } else {
-          throw FirebaseAuthException(
-            code: 'user-not-found',
-            message: 'User not found',
-          );
-        }
-      } catch (e) {
-        if (!mounted) return;
+    );
+  }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
+  InputDecoration _buildInputDecoration({
+    required String label,
+    required String hint,
+    required IconData icon,
+  }) {
+    final theme = Theme.of(context);
+
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: Icon(icon, color: Colors.grey),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF2563EB)),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.red),
+      ),
+      filled: true,
+      fillColor: theme.colorScheme.surface,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 24,
+        vertical: 16,
+      ),
+    );
+  }
+
+  Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final userCredentials = await _firebaseService.signIn(
+        _emailController.text,
+        _passwordController.text,
+        _role,
+      );
+
+      final userId = userCredentials.user?.uid;
+      if (userId == null) {
+        throw FirebaseAuthException(
+          code: 'user-not-found',
+          message: 'User not found',
         );
       }
+
+      final user = await _firebaseService.getCurrentUser(userId, _role);
+      if (user != null) {
+        await _firebaseService.updateFCMToken(userId, _role);
+
+        if (!mounted) return;
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Welcome back!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        // Navigate to appropriate screen
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => _role == 'supervisor'
+                ? const SupervisorHomeScreen()
+                : DriverHomeScreen(driverId: userId),
+          ),
+        );
+      } else {
+        _isLoading = false;
+        throw FirebaseAuthException(
+          code: 'user-not-found',
+          message: 'User not found',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_getErrorMessage(e)),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = true);
+      }
+      _isLoading = false;
     }
+  }
+
+  String _getErrorMessage(dynamic error) {
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'user-not-found':
+          return 'No user found with this email';
+        case 'wrong-password':
+          return 'Wrong password provided';
+        case 'invalid-email':
+          return 'The email address is badly formatted';
+        case 'user-disabled':
+          return 'This user account has been disabled';
+        default:
+          return 'An error occurred during sign in';
+      }
+    }
+    return 'An unexpected error occurred';
   }
 }

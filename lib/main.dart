@@ -9,6 +9,7 @@ import 'package:total_flutter/screens/supervisor_home_screen.dart'; // Import th
 import 'package:total_flutter/src/settings/settings_controller.dart';
 import 'package:total_flutter/src/settings/settings_service.dart';
 import 'package:total_flutter/services/firebase_service.dart'; // Import FirebaseService
+import 'package:total_flutter/themes/themes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,9 +31,13 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Total App',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      // Optional: Enable system theme mode
+      themeMode: ThemeMode.system,
+      // ThemeData(
+      //   primarySwatch: Colors.blue,
+      // ),
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
