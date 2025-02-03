@@ -3,6 +3,8 @@ import 'package:total_flutter/models/task.dart';
 import 'package:total_flutter/services/firebase_service.dart';
 
 class TaskListScreen extends StatefulWidget {
+  const TaskListScreen({super.key});
+
   @override
   _TaskListScreenState createState() => _TaskListScreenState();
 }
@@ -50,9 +52,10 @@ class _TaskListScreenState extends State<TaskListScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text('Assigned: ${task.assignedDriverId}'),
-                        Text('Location: ${task.dispalayLocationName}'),
+                        Text('Source: ${task.displayLocationName(task.source)}'),
+                        Text('Destination: ${task.displayLocationName(task.destination)}'),
                         Text('Estimated Time: ${task.estimatedTime} mins'),
-                        Text('Actual Time: ${task.actualTime} mins'),
+                        Text('Task Completion Time: ${task.taskCompletionTime} mins'),
                         Text('Number of Pallets: ${task.numberOfPallets}'),
                         const SizedBox(height: 8),
                         Text(

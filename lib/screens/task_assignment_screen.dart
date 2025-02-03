@@ -56,19 +56,22 @@ class _TaskAssignmentScreenState extends State<TaskAssignmentScreen> {
             const SizedBox(height: 16),
             TaskForm(
               onTaskCreated: (Task task) async {
-                final nearestDriver = await _findNearestDriver(task.location);
+                final nearestDriver = await _findNearestDriver(task.source);
                 if (nearestDriver != null) {
                   task = Task(
                     id: task.id,
                     name: task.name,
-                    location: task.location,
+                    source: task.source,
+                    destination: task.destination,
                     assignedDriverId: nearestDriver.id,
                     status: TaskStatus.assigned,
                     createdAt: task.createdAt,
                     type: task.type,
                     numberOfPallets: task.numberOfPallets,
                     estimatedTime: task.estimatedTime,
-                    actualTime: task.actualTime,
+                    startTime: task.startTime,
+                    endTime: task.endTime,
+                    duration: task.duration,
                   );
 
                   await _firebaseService.createTask(task);

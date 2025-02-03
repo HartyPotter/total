@@ -36,7 +36,7 @@ class TaskCard extends StatelessWidget {
           _buildInfoRow(
             Icons.location_on_outlined,
             'Location',
-            task.location,
+            task.source,
           ),
           const SizedBox(height: 8),
           _buildInfoRow(

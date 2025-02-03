@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:total_flutter/models/task.dart';
-import 'package:total_flutter/services/firebase_service.dart';
 
 class TaskForm extends StatefulWidget {
   final Function(Task) onTaskCreated;
@@ -17,12 +16,10 @@ class TaskForm extends StatefulWidget {
 class _TaskFormState extends State<TaskForm> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  // final _locationController = TextEditingController();
   final _estimatedTimeController = TextEditingController();
   final _palletsController = TextEditingController();
-// Default value
-  String _selectedLocation = "A"; // Default value
-
+  String _selectedSource = "A"; // Default value
+  String _selectedDestination = "B"; // Default value
   String _taskType = 'Loading'; // Default value
 
   @override
@@ -66,9 +63,9 @@ class _TaskFormState extends State<TaskForm> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _selectedLocation,
+            value: _selectedSource,
             decoration: const InputDecoration(
-              labelText: 'Task Location',
+              labelText: 'Source Location',
               border: OutlineInputBorder(),
             ),
             items: locationMapping.entries
@@ -79,7 +76,26 @@ class _TaskFormState extends State<TaskForm> {
                 .toList(),
             onChanged: (value) {
               setState(() {
-                _selectedLocation = value!;
+                _selectedSource = value!;
+              });
+            },
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _selectedDestination,
+            decoration: const InputDecoration(
+              labelText: 'Destination Location',
+              border: OutlineInputBorder(),
+            ),
+            items: locationMapping.entries
+                .map((entry) => DropdownMenuItem(
+                      value: entry.key,
+                      child: Text(entry.value),
+                    ))
+                .toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedDestination = value!;
               });
             },
           ),
@@ -126,19 +142,21 @@ class _TaskFormState extends State<TaskForm> {
                 final task = Task(
                   id: DateTime.now().toString(), // You might want to use UUID
                   name: _nameController.text,
-                  location: _selectedLocation,
+                  type: _taskType,
+                  source: _selectedSource, // New field
+                  destination: _selectedDestination, // New field
+                  numberOfPallets: int.parse(_palletsController.text),
+                  estimatedTime: int.parse(_estimatedTimeController.text),
+                  startTime: null, // Default start time
+                  endTime: null, // Default end time
+                  duration: 0, // Default duration
                   assignedDriverId: '', // Will be assigned later
                   status: TaskStatus.assigned,
                   createdAt: DateTime.now(),
-                  type: _taskType,
-                  numberOfPallets: int.parse(_palletsController.text),
-                  estimatedTime: int.parse(_estimatedTimeController.text),
-                  actualTime: 0,
                 );
                 widget.onTaskCreated(task);
                 // Clear form
                 _nameController.clear();
-                // _selectedLocation.clear();
                 _estimatedTimeController.clear();
                 _palletsController.clear();
               }

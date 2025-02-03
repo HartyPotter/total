@@ -7,7 +7,7 @@ import 'package:total_flutter/screens/login_screen.dart' as login;
 class DriverHomeScreen extends StatefulWidget {
   final String driverId;
 
-  const DriverHomeScreen({Key? key, required this.driverId}) : super(key: key);
+  const DriverHomeScreen({super.key, required this.driverId});
 
   @override
   _DriverHomeScreenState createState() => _DriverHomeScreenState();
@@ -15,6 +15,7 @@ class DriverHomeScreen extends StatefulWidget {
 
 class _DriverHomeScreenState extends State<DriverHomeScreen>
     with SingleTickerProviderStateMixin {
+  final Map<String, String> _taskStatus = {}; // Map to track task status
   final FirebaseService _firebaseService = FirebaseService();
   late TabController _tabController;
 
@@ -32,7 +33,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
 
   // Update the location of the driver after the driver has accepted the task
   Future<void> _handleTaskResponse(Task task, bool accepted) async {
+    setState(() {
+      _taskStatus[task.id] = accepted ? 'accepted' : 'rejected';
+    });
     if (accepted) {
+      final startTime = DateTime.now(); // Start time of the task
+
       final status = TaskStatus.inProgress.toString().split('.').last;
       await _firebaseService.updateTaskStatus(
         task.id,
@@ -40,8 +46,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       );
       await _firebaseService.assignTaskToDriver(
         widget.driverId,
-        task.location,
+        task.source,
       );
+      await _firebaseService.updateTaskStartTime(
+          task.id, startTime); // Update the start time of the task
     } else {
       final status = TaskStatus.assigned.toString().split('.').last;
       await _firebaseService.updateTaskStatus(
@@ -52,6 +60,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
   }
 
   Future<void> _markTaskAsComplete(Task task) async {
+    setState(() {
+      _taskStatus[task.id] = 'completed';
+    });
+    final endTime = DateTime.now(); // End time of the task
     final status = TaskStatus.completed.toString().split('.').last;
     await _firebaseService.updateTaskStatus(
       task.id,
@@ -61,6 +73,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       widget.driverId,
       true,
     );
+    await _firebaseService.updateTaskEndTime(task.id, endTime);
   }
 
   // Future<void> _handleTaskResponse(String taskId, bool accepted) async {
@@ -115,8 +128,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
         children: [
           _buildTaskList(_firebaseService.getDriverTasks(
               widget.driverId, 'status', 'inProgress')),
-          _buildTaskList(
-              _firebaseService.getDriverTasks(widget.driverId, 'status', 'assigned')),
+          _buildTaskList(_firebaseService.getDriverTasks(
+              widget.driverId, 'status', 'assigned')),
           _buildTaskList(_firebaseService.getDriverTasks(
               widget.driverId, 'status', 'completed')),
         ],
@@ -137,7 +150,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           return const Center(child: CircularProgressIndicator());
         }
         final tasks = snapshot.data!;
-        print('Tasks loaded: ${tasks}');
+        print('Tasks loaded: $tasks');
         if (tasks.isEmpty) {
           return const Center(child: Text('No tasks available'));
         }
@@ -145,34 +158,67 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           itemCount: tasks.length,
           itemBuilder: (context, index) {
             final task = tasks[index];
-            return ListTile(
-              title: Text(task.name),
-              subtitle: Text(task.dispalayLocationName),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white, backgroundColor: Colors.blue,
+            final status = _taskStatus[task.id];
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              elevation: 4,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      task.name,
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
-                    child: const Text('Accept'),
-                    onPressed: () => _handleTaskResponse(task, true),
-                  ),
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white, backgroundColor: Colors.red,
+                    const SizedBox(height: 8),
+                    Text('From: ${task.displayLocationName(task.source)}'),
+                    Text('To: ${task.displayLocationName(task.destination)}'),
+                    Text('Number of Pallets: ${task.numberOfPallets}'),
+                    if (task.startTime != null)
+                      Text('Start Time: ${task.startTime!.toLocal()}'),
+                    if (task.endTime != null)
+                      Text('End Time: ${task.endTime!.toLocal()}'),
+                    if (task.startTime != null && task.endTime != null)
+                      Text(
+                          'Duration: ${task.endTime!.difference(task.startTime!).inMinutes} minutes'),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        if (_tabController.index == 1) ...[
+                          // Task Requests Tab
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () => _handleTaskResponse(task, true),
+                            child: const Text('Accept'),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () => _handleTaskResponse(task, false),
+                            child: const Text('Reject'),
+                          ),
+                        ] else if (_tabController.index == 0) ...[
+                          // Current Tasks Tab
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () => _markTaskAsComplete(task),
+                            child: const Text('Complete'),
+                          ),
+                        ]
+                      ],
                     ),
-                    child: const Text('Reject'),
-                    onPressed: () => _handleTaskResponse(task, false),
-                  ),
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white, backgroundColor: Colors.green,
-                    ),
-                    child: const Text('Completed'),
-                    onPressed: () => _markTaskAsComplete(task),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },

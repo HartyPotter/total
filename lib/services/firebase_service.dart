@@ -1,9 +1,6 @@
-import 'dart:ffi';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:total_flutter/models/app_user.dart';
 import 'package:total_flutter/models/driver.dart';
 import 'package:total_flutter/models/supervisor.dart';
 import 'package:total_flutter/models/task.dart';
@@ -83,7 +80,8 @@ class FirebaseService {
           return Task(
             id: doc.id,
             name: data['name'],
-            location: data['location'],
+            source: data['source'],
+            destination: data['destination'],
             assignedDriverId: data['assignedDriverId'],
             status: TaskStatus.values.firstWhere(
               (status) => status.toString().split('.').last == data['status'],
@@ -92,7 +90,9 @@ class FirebaseService {
             type: data['type'],
             numberOfPallets: data['numberOfPallets'] as int,
             estimatedTime: data['estimatedTime'] as int,
-            actualTime: data['actualTime'] as int,
+            startTime: data['startTime'],
+            endTime: data['endTime'],
+            duration: data['duration'] as int,
           );
         }).toList();
       });
@@ -113,20 +113,7 @@ class FirebaseService {
     return query.snapshots().map((snapshot) {
       return snapshot.docs.map((doc) {
         final data = doc.data();
-        return Task(
-          id: doc.id,
-          name: data['name'],
-          location: data['location'],
-          assignedDriverId: data['assignedDriverId'],
-          status: TaskStatus.values.firstWhere(
-            (status) => status.toString().split('.').last == data['status'],
-          ),
-          createdAt: (data['createdAt'] as Timestamp).toDate(),
-          type: data['type'],
-          numberOfPallets: data['numberOfPallets'] as int,
-          estimatedTime: data['estimatedTime'] as int,
-          actualTime: data['actualTime'] as int,
-        );
+        return Task.fromMap(data, doc.id); // Use the factory constructor
       }).toList();
     });
   }
@@ -135,22 +122,7 @@ class FirebaseService {
     final querySnapshot = await _firestore.collection('tasks').get();
     return querySnapshot.docs.map((doc) {
       final data = doc.data();
-      return Task(
-        id: doc.id,
-        name: data['name'],
-        location: data['location'],
-        assignedDriverId: data['assignedDriverId'],
-        status: TaskStatus.values.firstWhere(
-            (status) => status.name == data['status'],
-            orElse: () => TaskStatus.unknown),
-        createdAt: data['createdAt'] != null
-            ? (data['createdAt'] as Timestamp).toDate()
-            : DateTime.now(), // Provide a default value if null
-        type: data['type'] as String,
-        numberOfPallets: data['numberOfPallets'] as int,
-        estimatedTime: data['estimatedTime'] as int,
-        actualTime: data['actualTime'] as int,
-      );
+      return Task.fromMap(data, doc.id); // Use the factory constructor
     }).toList();
   }
 
@@ -182,10 +154,26 @@ class FirebaseService {
     });
   }
 
-  Future<void> updateTaskTime(String taskId, int recordedTime) async {
+  Future<void> updateTaskStartTime(String taskId, DateTime startTime) async {
     await _firestore.collection('tasks').doc(taskId).update({
-      'actualTime': recordedTime,
-      'status': TaskStatus.completed.toString().split('.').last,
+      'startTime':
+          Timestamp.fromDate(startTime), // Convert DateTime to Timestamp
+    });
+  }
+
+  Future<void> updateTaskEndTime(String taskId, DateTime endTime) async {
+    final taskDoc = await _firestore.collection('tasks').doc(taskId).get();
+    final startTime = taskDoc.data()?['startTime'] as Timestamp?;
+
+    if (startTime == null) {
+      throw Exception('Start time is not set for this task.');
+    }
+
+    final duration = endTime.difference(startTime.toDate()).inMinutes;
+
+    await _firestore.collection('tasks').doc(taskId).update({
+      'endTime': Timestamp.fromDate(endTime), // Convert DateTime to Timestamp
+      'duration': duration,
     });
   }
 
