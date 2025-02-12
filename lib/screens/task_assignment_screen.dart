@@ -9,6 +9,7 @@ class TaskAssignmentScreen extends StatefulWidget {
   const TaskAssignmentScreen({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _TaskAssignmentScreenState createState() => _TaskAssignmentScreenState();
 }
 

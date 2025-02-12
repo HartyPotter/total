@@ -6,38 +6,79 @@ import 'package:total_flutter/screens/login_screen.dart';
 import 'package:total_flutter/screens/task_assignment_screen.dart';
 import 'package:total_flutter/screens/driver_home_screen.dart'; // Import the driver home screen
 import 'package:total_flutter/screens/supervisor_home_screen.dart'; // Import the supervisor home screen
+import 'package:total_flutter/services/notification_service.dart';
 import 'package:total_flutter/src/settings/settings_controller.dart';
 import 'package:total_flutter/src/settings/settings_service.dart';
 import 'package:total_flutter/services/firebase_service.dart'; // Import FirebaseService
 import 'package:total_flutter/themes/themes.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'dart:convert';
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  print('Handling a background message: ${message.messageId}');
+
+  // Show a local notification
+  const AndroidNotificationDetails androidPlatformChannelSpecifics =
+      AndroidNotificationDetails(
+    NotificationService.channelId, // Use the channel ID
+    NotificationService.channelName, // Use the channel name
+    importance: Importance.max,
+    priority: Priority.high,
+    showWhen: false,
+  );
+  const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    android: androidPlatformChannelSpecifics,
+    iOS: null, // Configure for iOS if needed
+  );
+
+  await FlutterLocalNotificationsPlugin().show(
+    0, // Notification ID
+    message.notification?.title, // Title
+    message.notification?.body, // Body
+    platformChannelSpecifics,
+    payload: jsonEncode(message.data), // Pass any custom data
+  );
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
+  // Set the background handler
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Initialize notification services
+  final notificationService = NotificationService();
+  notificationService.initialize();
+
   final settingsController = SettingsController(SettingsService());
   await settingsController.loadSettings();
 
-  runApp(MyApp(settingsController: settingsController));
+  runApp(MyApp(
+      settingsController: settingsController,
+      navigatorKey: notificationService.navigatorKey));
 }
 
 class MyApp extends StatelessWidget {
   final SettingsController settingsController;
+  final GlobalKey<NavigatorState> navigatorKey;
 
-  const MyApp({super.key, required this.settingsController});
+  const MyApp(
+      {super.key,
+      required this.settingsController,
+      required this.navigatorKey});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Total App',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      // Optional: Enable system theme mode
       themeMode: ThemeMode.system,
-      // ThemeData(
-      //   primarySwatch: Colors.blue,
-      // ),
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
@@ -55,7 +96,10 @@ class MyApp extends StatelessWidget {
                   if (role == 'supervisor') {
                     return const SupervisorHomeScreen();
                   } else if (role == 'driver') {
-                    return DriverHomeScreen(driverId: snapshot.data!.uid);
+                    return DriverHomeScreen(
+                      driverId: snapshot.data!.uid,
+                      initialTabIndex: 0, // Default to the first tab
+                    );
                   } else {
                     return const LoginScreen(); // Fallback to login if role is unknown
                   }
@@ -70,6 +114,20 @@ class MyApp extends StatelessWidget {
           }
         },
       ),
+      routes: {
+        '/taskRequests': (context) {
+          // Retrieve arguments
+          final args = ModalRoute.of(context)!.settings.arguments
+              as Map<String, dynamic>?;
+          final driverId = args?['driverId'] ?? '';
+          final initialTabIndex = args?['initialTabIndex'] ?? 0;
+
+          return DriverHomeScreen(
+            driverId: driverId,
+            initialTabIndex: initialTabIndex,
+          );
+        },
+      },
     );
   }
 
