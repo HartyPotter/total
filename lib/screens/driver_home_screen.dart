@@ -6,8 +6,13 @@ import 'package:total_flutter/screens/login_screen.dart' as login;
 
 class DriverHomeScreen extends StatefulWidget {
   final String driverId;
+  final int initialTabIndex; // Add initialTabIndex parameter
 
-  const DriverHomeScreen({super.key, required this.driverId});
+  const DriverHomeScreen({
+    super.key,
+    required this.driverId,
+    this.initialTabIndex = 0, // Default to the first tab
+  });
 
   @override
   _DriverHomeScreenState createState() => _DriverHomeScreenState();
@@ -22,7 +27,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    // Initialize TabController with initialTabIndex
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex, // Use initialTabIndex here
+    );
   }
 
   @override
@@ -31,31 +41,31 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
     super.dispose();
   }
 
+  // Method to switch to the task requests tab
+  void switchToTaskRequestsTab() {
+    setState(() {
+      _tabController.index = 2; // Switch to the second tab (Task Requests)
+    });
+  }
+
   // Update the location of the driver after the driver has accepted the task
   Future<void> _handleTaskResponse(Task task, bool accepted) async {
     setState(() {
       _taskStatus[task.id] = accepted ? 'accepted' : 'rejected';
     });
-    if (accepted) {
-      final startTime = DateTime.now(); // Start time of the task
 
-      final status = TaskStatus.inProgress.toString().split('.').last;
-      await _firebaseService.updateTaskStatus(
-        task.id,
-        status,
-      );
-      await _firebaseService.assignTaskToDriver(
-        widget.driverId,
-        task.source,
-      );
-      await _firebaseService.updateTaskStartTime(
-          task.id, startTime); // Update the start time of the task
+    final status = accepted
+        ? TaskStatus.inProgress.toString().split('.').last
+        : TaskStatus.assigned.toString().split('.').last;
+
+    await _firebaseService.updateTaskStatus(task.id, status);
+
+    if (accepted) {
+      final startTime = DateTime.now();
+      await _firebaseService.assignTaskToDriver(widget.driverId, task.source);
+      await _firebaseService.updateTaskStartTime(task.id, startTime);
     } else {
-      final status = TaskStatus.assigned.toString().split('.').last;
-      await _firebaseService.updateTaskStatus(
-        task.id,
-        status,
-      );
+      await _firebaseService.updateDriverStatus(widget.driverId, false);
     }
   }
 
@@ -65,36 +75,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
     });
     final endTime = DateTime.now(); // End time of the task
     final status = TaskStatus.completed.toString().split('.').last;
-    await _firebaseService.updateTaskStatus(
-      task.id,
-      status,
-    );
-    await _firebaseService.updateDriverStatus(
-      widget.driverId,
-      true,
-    );
+    await _firebaseService.updateTaskStatus(task.id, status);
+    await _firebaseService.updateDriverStatus(widget.driverId, true);
     await _firebaseService.updateTaskEndTime(task.id, endTime);
   }
-
-  // Future<void> _handleTaskResponse(String taskId, bool accepted) async {
-  //   if (accepted) {
-  //     final status = TaskStatus.inProgress.toString().split('.').last;
-  //     final task = await _firebaseService.updateTaskStatus(
-  //       taskId,
-  //       status,
-  //     ).asStream();
-  //     await _firebaseService.assignTaskToDriver(
-  //       widget.driverId,
-  //       task.location,
-  //     );
-  //   } else {
-  //     final status = TaskStatus.assigned.toString().split('.').last;
-  //     await _firebaseService.updateTaskStatus(
-  //       taskId,
-  //       status,
-  //     );
-  //   }
-  // }
 
   @override
   Widget build(BuildContext context) {
@@ -109,7 +93,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
               if (!mounted) return;
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
-                    builder: (context) => const login.LoginScreen()),
+                  builder: (context) => const login.LoginScreen(),
+                ),
               );
             },
           ),

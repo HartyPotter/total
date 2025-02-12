@@ -1,9 +1,12 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:total_flutter/models/driver.dart';
 import 'package:total_flutter/models/supervisor.dart';
 import 'package:total_flutter/models/task.dart';
+import 'package:googleapis_auth/auth_io.dart' as auth;
 
 class FirebaseService {
   final _auth = FirebaseAuth.instance;
@@ -25,6 +28,9 @@ class FirebaseService {
         message: 'User not found',
       );
     }
+
+    // Update FCM token
+    await updateFCMToken(userId, role);
 
     // Query the appropriate collection based on the role
     final collection = role == 'driver' ? 'drivers' : 'supervisors';
@@ -133,18 +139,76 @@ class FirebaseService {
 
     // Get driver's FCM token
     final driverDoc =
-        await _firestore.collection('users').doc(task.assignedDriverId).get();
-
+        await _firestore.collection('drivers').doc(task.assignedDriverId).get();
     final fcmToken = driverDoc.data()?['fcmToken'];
 
     if (fcmToken != null) {
-      // Send notification (implement using Firebase Cloud Functions)
-      await _firestore.collection('notifications').add({
-        'to': fcmToken,
-        'title': 'New Task Assigned',
-        'body': 'You have been assigned a new task: ${task.name}',
-        'taskId': docRef.id,
-      });
+      // Send notification using FCM
+      await _sendNotificationToDriver(task.assignedDriverId, task.name);
+    }
+  }
+
+  Future<String> _getAccessToken() async {
+    //  Use the googleapis_auth package as you had originally intended
+    final serviceAccountCredentials = auth.ServiceAccountCredentials.fromJson(
+        ''); // Replace _firebaseServiceAccountCredentials with your credentials
+
+    final client = await auth.clientViaServiceAccount(
+      serviceAccountCredentials,
+      ['https://www.googleapis.com/auth/firebase.messaging'],
+    );
+
+    return client.credentials.accessToken.data;
+  }
+
+  Future<void> _sendNotificationToDriver(
+      String driverId, String taskName) async {
+    final driverDoc = await FirebaseFirestore.instance
+        .collection('drivers')
+        .doc(driverId)
+        .get();
+    final fcmToken = driverDoc.data()?['fcmToken'];
+
+    if (fcmToken != null) {
+      try {
+        // Construct the FCM message payload.  Simplified using `notification` field
+        final message = {
+          "message": {
+            "token": fcmToken,
+            "notification": {
+              "title": "New Task Assigned",
+              "body": "You have a new task: $taskName",
+            },
+            "data": {
+              // Include any custom data for handling in the app
+              "taskName": taskName,
+              "taskId": "task123" // Example - replace with actual task ID
+            }
+          }
+        };
+
+        // Send the HTTP request using the http package
+        final response = await http.post(
+          Uri.parse(
+              'https://fcm.googleapis.com/v1/projects/new-total-c0e19/messages:send'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization':
+                'Bearer ${await _getAccessToken()}', // Important: add access token
+          },
+          body: json.encode(message),
+        );
+
+        if (response.statusCode == 200) {
+          print('Notification sent successfully');
+        } else {
+          print('Failed to send notification: ${response.body}');
+        }
+      } catch (e) {
+        print('Error sending notification: $e');
+      }
+    } else {
+      print('Driver FCM token not found');
     }
   }
 
@@ -180,6 +244,9 @@ class FirebaseService {
   // FCM token management
   Future<void> updateFCMToken(String userId, String role) async {
     final token = await _messaging.getToken();
+
+    print('FCM Token: $token');
+
     if (token != null) {
       final user = _auth.currentUser;
       if (user != null) {
