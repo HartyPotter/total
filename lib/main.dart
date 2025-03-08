@@ -1,8 +1,10 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:total_flutter/features/auth/data/auth_repository.dart';
 import 'package:total_flutter/features/auth/domain/models/auth_state.dart';
 import 'package:total_flutter/features/auth/presentation/screens/login_screen.dart';
+import 'package:total_flutter/features/driver/data/driver_repository.dart';
 import 'package:total_flutter/features/driver/presentation/screens/driver_home_screen.dart';
 import 'package:total_flutter/features/supervisor/presentation/screens/supervisor_home_screen.dart';
 import 'package:total_flutter/features/notifications/data/notification_repository.dart';
@@ -10,6 +12,7 @@ import 'package:total_flutter/core/theme/app_theme.dart';
 import 'package:total_flutter/core/constants/app_constants.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:total_flutter/features/driver_management/domain/models/driver.dart';
+import 'package:total_flutter/features/task_management/data/task_repository.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -26,6 +29,11 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  final authRepository = AuthRepository(); // Initialize AuthRepository
+
+  final taskRepository = TaskRepository(null);
+  final driverRepository = DriverRepository(taskRepository);
+  taskRepository.setDriverRepository(driverRepository);
 
   // Initialize notifications
   final notificationRepo = NotificationRepository();
@@ -44,8 +52,13 @@ void main() async {
   });
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AuthState(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthState()),
+        Provider<AuthRepository>(create: (_) => authRepository),
+        Provider<DriverRepository>(create: (_) => driverRepository),
+        Provider<TaskRepository>(create: (_) => taskRepository),
+      ],
       child: const MyApp(),
     ),
   );
@@ -83,7 +96,9 @@ class MyApp extends StatelessWidget {
                 ),
               );
             case AppConstants.roleSupervisor:
-              return SupervisorHomeScreen(supervisor: authState.userData);
+              return SupervisorHomeScreen(
+                supervisor: authState.userData,
+              );
             default:
               // If role is not recognized, sign out and show login screen
               authState.signOut();

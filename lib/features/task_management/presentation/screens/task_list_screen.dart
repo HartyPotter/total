@@ -7,9 +7,9 @@ import 'package:total_flutter/core/utils/app_utils.dart';
 import 'package:total_flutter/core/widgets/modern_card.dart';
 
 class TaskListScreen extends StatelessWidget {
-  final TaskRepository _taskRepository = TaskRepository();
+  final TaskRepository taskRepository;
 
-  TaskListScreen({super.key});
+  const TaskListScreen({super.key, required this.taskRepository});
 
   Future<Driver?> _fetchDriver(DocumentReference reference) async {
     final doc = await reference.get();
@@ -22,7 +22,7 @@ class TaskListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Task>>(
-      stream: _taskRepository.getTasksStream(),
+      stream: taskRepository.getTasksStream(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));

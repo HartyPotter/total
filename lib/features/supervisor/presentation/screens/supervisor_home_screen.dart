@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:total_flutter/features/map/map_page.dart';
 import 'package:total_flutter/features/task_management/presentation/screens/task_list_screen.dart';
 import 'package:total_flutter/features/task_management/presentation/screens/task_assignment_screen.dart';
 import 'package:total_flutter/features/supervisor/presentation/screens/drivers_screen.dart';
 import 'package:total_flutter/features/supervisor/presentation/screens/forklifts_screen.dart';
 import 'package:total_flutter/features/auth/presentation/screens/login_screen.dart';
 import 'package:total_flutter/features/auth/data/auth_repository.dart';
+import 'package:total_flutter/features/task_management/data/task_repository.dart';
+import 'package:total_flutter/features/driver/data/driver_repository.dart';
 import 'package:total_flutter/core/utils/app_utils.dart';
 
 class SupervisorHomeScreen extends StatefulWidget {
@@ -22,6 +26,9 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final taskRepository = Provider.of<TaskRepository>(context);
+    final driverRepository = Provider.of<DriverRepository>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_getTitle()),
@@ -54,7 +61,10 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const TaskAssignmentScreen(),
+                    builder: (context) => TaskAssignmentScreen(
+                      taskRepository: taskRepository,
+                      driverRepository: driverRepository,
+                    ),
                   ),
                 );
               },
@@ -63,6 +73,8 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
           : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
+        selectedItemColor: Colors.black, // Set to desired color
+        unselectedItemColor: Colors.grey, // Set to desired color
         onTap: (index) {
           setState(() {
             _selectedIndex = index;
@@ -81,6 +93,10 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
             icon: Icon(Icons.precision_manufacturing),
             label: 'Forklifts',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.map),
+            label: 'Map', // New Map tab
+          ),
         ],
       ),
     );
@@ -94,21 +110,27 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
         return 'Drivers';
       case 2:
         return 'Forklifts';
+      case 3:
+        return 'Map'; // Title for the Map tab
       default:
         return 'Supervisor Dashboard';
     }
   }
 
   Widget _getBody() {
+    final taskRepository = Provider.of<TaskRepository>(context);
+
     switch (_selectedIndex) {
       case 0:
-        return TaskListScreen();
+        return TaskListScreen(taskRepository: taskRepository);
       case 1:
         return const DriversScreen();
       case 2:
         return const ForkliftsScreen();
+      case 3:
+        return const MapScreen(); // Display the MapScreen
       default:
-        return TaskListScreen();
+        return TaskListScreen(taskRepository: taskRepository);
     }
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:total_flutter/features/task_management/domain/models/task.dart';
 import 'package:total_flutter/features/task_management/data/task_repository.dart';
 import 'package:total_flutter/features/auth/presentation/screens/login_screen.dart';
@@ -8,6 +9,7 @@ import 'package:total_flutter/core/constants/app_constants.dart';
 import 'package:total_flutter/core/utils/app_utils.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:total_flutter/features/driver_management/domain/models/driver.dart';
+import 'package:total_flutter/features/location/location_service.dart'; // Import the LocationService
 
 class DriverHomeScreen extends StatefulWidget {
   final Driver driver;
@@ -19,13 +21,10 @@ class DriverHomeScreen extends StatefulWidget {
 }
 
 class DriverHomeScreenState extends State<DriverHomeScreen> {
-  final TaskRepository _taskRepository = TaskRepository();
-  final AuthRepository _authRepository = AuthRepository();
-  final DriverRepository _driverRepository = DriverRepository();
-
   String? _selectedFilter;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final supervisorNames = <DocumentReference, String>{};
+  late LocationService _locationService;
 
   Future<void> _fetchSupervisorNames() async {
     final supervisorsSnapshot =
@@ -40,10 +39,16 @@ class DriverHomeScreenState extends State<DriverHomeScreen> {
   void initState() {
     super.initState();
     _fetchSupervisorNames();
+    _locationService = LocationService(widget.driver.id);
+    _locationService.startLocationTracking();
   }
 
   @override
   Widget build(BuildContext context) {
+    final taskRepository = Provider.of<TaskRepository>(context);
+    final authRepository = Provider.of<AuthRepository>(context);
+    final driverRepository = Provider.of<DriverRepository>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Welcome, ${widget.driver.name}'),
@@ -103,7 +108,7 @@ class DriverHomeScreenState extends State<DriverHomeScreen> {
                   isError: true,
                 );
               }
-              await _authRepository.signOut();
+              await authRepository.signOut();
 
               if (!mounted) return;
 
@@ -164,7 +169,7 @@ class DriverHomeScreenState extends State<DriverHomeScreen> {
           ),
           Expanded(
             child: StreamBuilder<List<Task>>(
-              stream: _taskRepository.getTasksStream(
+              stream: taskRepository.getTasksStream(
                 driverRef: _firestore
                     .collection(AppConstants.driversCollection)
                     .doc(widget.driver.id),
@@ -224,22 +229,26 @@ class DriverHomeScreenState extends State<DriverHomeScreen> {
                                   ElevatedButton(
                                     onPressed: () async {
                                       try {
-                                        await _taskRepository.updateTaskStatus(
+                                        await taskRepository.updateTaskStatus(
                                           task.id,
                                           AppConstants.taskStatusInProgress,
                                         );
                                         // Update the driver's status to busy
-                                        await _driverRepository
+                                        await driverRepository
                                             .updateDriverStatus(
                                                 widget.driver.id,
                                                 AppConstants.driverStatusBusy);
-                                        await _taskRepository
+                                        await taskRepository
                                             .updateTaskStartTime(
                                           task.id,
                                           DateTime.now(),
                                         );
-                                        await _taskRepository
-                                            .sendTaskUpdateNotification(task.name, AppConstants.taskStatusInProgress, task.createdBy);
+                                        await taskRepository
+                                            .sendTaskUpdateNotification(
+                                                task.name,
+                                                AppConstants
+                                                    .taskStatusInProgress,
+                                                task.createdBy);
                                         if (!mounted) return;
                                         AppUtils.showSnackBar(
                                           context,
@@ -265,21 +274,25 @@ class DriverHomeScreenState extends State<DriverHomeScreen> {
                                   ElevatedButton(
                                     onPressed: () async {
                                       try {
-                                        await _taskRepository.updateTaskStatus(
+                                        await taskRepository.updateTaskStatus(
                                           task.id,
                                           AppConstants.taskStatusCompleted,
                                         );
-                                        await _driverRepository
+                                        await driverRepository
                                             .updateDriverStatus(
                                                 widget.driver.id,
                                                 AppConstants
                                                     .driverStatusActive);
-                                        await _taskRepository.updateTaskEndTime(
+                                        await taskRepository.updateTaskEndTime(
                                           task.id,
                                           DateTime.now(),
                                         );
-                                        await _taskRepository
-                                            .sendTaskUpdateNotification(task.name, AppConstants.taskStatusCompleted, task.createdBy);
+                                        await taskRepository
+                                            .sendTaskUpdateNotification(
+                                                task.name,
+                                                AppConstants
+                                                    .taskStatusCompleted,
+                                                task.createdBy);
                                         if (!mounted) return;
                                         AppUtils.showSnackBar(
                                           context,

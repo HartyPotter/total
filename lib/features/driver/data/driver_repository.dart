@@ -5,8 +5,12 @@ import 'package:total_flutter/features/supervisor_management/domain/models/super
 import 'package:total_flutter/core/constants/app_constants.dart';
 import 'package:total_flutter/core/config/app_config.dart';
 import 'package:http/http.dart' as http;
+import 'package:total_flutter/features/task_management/data/task_repository.dart';
 
 class DriverRepository {
+  final TaskRepository _taskRepository;
+
+  DriverRepository(this._taskRepository); // Inject TaskRepository
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final AuthRepository _authRepository = AuthRepository();
 
@@ -32,6 +36,8 @@ class DriverRepository {
 
   Future<void> sendNotificationToDriver(
       String driverId, String taskName, DocumentReference supervisorRef) async {
+    print(
+        '--------------------Notification sent to driver--------------------');
     final driverDoc = await _firestore
         .collection(AppConstants.driversCollection)
         .doc(driverId)
@@ -128,6 +134,10 @@ class DriverRepository {
   }
 
   Future<void> updateDriverStatus(String driverId, String status) async {
+    if (status == AppConstants.driverStatusActive) {
+      _taskRepository.processQueuedTasks();
+    }
+
     final driverDoc =
         _firestore.collection(AppConstants.driversCollection).doc(driverId);
     driverDoc.update({

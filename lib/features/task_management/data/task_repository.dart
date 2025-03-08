@@ -10,9 +10,16 @@ import 'package:total_flutter/features/driver/data/driver_repository.dart';
 import 'package:http/http.dart' as http;
 
 class TaskRepository {
+  DriverRepository? _driverRepository;
+
+  TaskRepository(this._driverRepository); // Inject DriverRepository
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final DriverRepository _driverRepository = DriverRepository();
   final AuthRepository _authRepository = AuthRepository();
+
+  void setDriverRepository(DriverRepository driverRepository) {
+    _driverRepository = driverRepository;
+  }
 
   Stream<List<Task>> getTasksStream(
       {DocumentReference? driverRef, String? status}) {
@@ -54,7 +61,7 @@ class TaskRepository {
       final fcmToken = data['fcmToken'];
 
       if (fcmToken != null) {
-        await _driverRepository.sendNotificationToDriver(
+        await _driverRepository?.sendNotificationToDriver(
             task.assignedDriver!.id, task.name, task.createdBy);
       }
     }
@@ -80,7 +87,8 @@ class TaskRepository {
 
   Future<void> sendTaskUpdateNotification(
       String taskName, String status, DocumentReference supervisorRef) async {
-        
+    print(
+        '-------------------Task Update Notification Sent--------------------');
     final supervisorDoc = await supervisorRef.get();
     final supervisor = Supervisor.fromMap(
         supervisorDoc.data() as Map<String, dynamic>, supervisorDoc.id);
@@ -144,35 +152,28 @@ class TaskRepository {
     });
   }
 
-  Stream<List<Task>> getQueuedTasks() {
-    return _firestore
-        .collection(AppConstants.tasksCollection)
-        .where('isQueued', isEqualTo: true)
-        .orderBy('createdAt')
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return Task.fromMap(doc.data(), doc.id);
-      }).toList();
-    });
-  }
-
-  Future<void> processQueuedTasks() async {
+  Future<List<Task>> _fetchQueuedTasks() async {
     final queuedTasksSnapshot = await _firestore
         .collection(AppConstants.tasksCollection)
         .where('isQueued', isEqualTo: true)
         .orderBy('createdAt')
         .get();
 
-    if (queuedTasksSnapshot.docs.isEmpty) return;
+    return queuedTasksSnapshot.docs.map((doc) {
+      return Task.fromMap(doc.data(), doc.id);
+    }).toList();
+  }
 
-    final availableDrivers = await _driverRepository.getAvailableDriversOnce(true);
-    if (availableDrivers.isEmpty) return;
+  Future<void> processQueuedTasks() async {
+    print(
+        "---------------------------QUEUED TASKS ARE BEING PROCESSED---------------------------");
+    final queuedTasks = await _fetchQueuedTasks();
+    final availableDrivers =
+        await _driverRepository?.getAvailableDriversOnce(true);
 
-    // final driverLocations = await _driverRepository.getDriverLocations();
+    if (availableDrivers!.isEmpty) return;
 
-    for (var doc in queuedTasksSnapshot.docs) {
-      final task = Task.fromMap(doc.data(), doc.id);
+    for (var task in queuedTasks) {
       final sourceLocationId = task.source.split(':')[0].trim();
 
       final nearestDriverId = PathFindingUtils.findNearestAvailableDriver(
@@ -181,32 +182,44 @@ class TaskRepository {
       );
 
       if (nearestDriverId != null) {
-        // Update task with assigned driver and remove from queue
-        await _firestore
-            .collection(AppConstants.tasksCollection)
-            .doc(doc.id)
-            .update({
-          'assignedDriverId': nearestDriverId,
-          'isQueued': false,
-        });
-
-        // Send notification to the assigned driver
-        await _driverRepository.sendNotificationToDriver(
-            nearestDriverId, task.name, task.createdBy);
-
-        // Update driver status to busy
-        await _firestore
-            .collection(AppConstants.driversCollection)
-            .doc(nearestDriverId)
-            .update({
-          'status': AppConstants.driverStatusBusy,
-        });
+        await _assignTaskToDriver(task.id, nearestDriverId, task);
 
         // Remove this driver from available drivers list
         availableDrivers
             .removeWhere((driver) => driver['id'] == nearestDriverId);
         if (availableDrivers.isEmpty) break;
       }
+    }
+  }
+
+  // Helper function to assign a task to a driver
+  Future<void> _assignTaskToDriver(
+      String taskId, String driverId, Task task) async {
+    try {
+      // Create a DocumentReference for the driver
+      final driverRef =
+          _firestore.collection(AppConstants.driversCollection).doc(driverId);
+
+      // Update the task with the driver's DocumentReference
+      await _firestore
+          .collection(AppConstants.tasksCollection)
+          .doc(taskId)
+          .update({
+        'assignedDriver':
+            driverRef, // Use DocumentReference instead of driverId
+        'isQueued': false,
+      });
+
+      // Send a notification to the driver
+      await _driverRepository?.sendNotificationToDriver(
+        driverId,
+        task.name,
+        task.createdBy,
+      );
+
+      print('Task $taskId assigned to driver $driverId');
+    } catch (e) {
+      print('Error assigning task to driver: $e');
     }
   }
 }

@@ -11,7 +11,14 @@ import 'package:total_flutter/core/utils/path_finding_utils.dart';
 import 'package:total_flutter/core/widgets/modern_card.dart';
 
 class TaskAssignmentScreen extends StatefulWidget {
-  const TaskAssignmentScreen({super.key});
+  final TaskRepository taskRepository;
+  final DriverRepository driverRepository;
+
+  const TaskAssignmentScreen({
+    super.key,
+    required this.taskRepository,
+    required this.driverRepository,
+  });
 
   @override
   TaskAssignmentScreenState createState() => TaskAssignmentScreenState();
@@ -20,8 +27,6 @@ class TaskAssignmentScreen extends StatefulWidget {
 class TaskAssignmentScreenState extends State<TaskAssignmentScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final _formKey = GlobalKey<FormState>();
-  final _taskRepository = TaskRepository();
-  final DriverRepository _driverRepository = DriverRepository();
 
   final _nameController = TextEditingController();
   final _numberOfPalletsController = TextEditingController();
@@ -63,15 +68,14 @@ class TaskAssignmentScreenState extends State<TaskAssignmentScreen> {
         final destinationNode = LocationNode.fromId(_selectedDestination!);
 
         // Check if any drivers are available
-        final driversAvailable = await _driverRepository.areDriversAvailable();
+        final driversAvailable =
+            await widget.driverRepository.areDriversAvailable();
         String? assignedDriverId;
 
         if (driversAvailable) {
           // Get available drivers and their locations
           final availableDriversWithLocations =
-              await _driverRepository.getAvailableDriversOnce(true);
-          // final availableDriversWithLocations = availableDrivers['locations'] as Map<String, String>;
-          // final driverLocations = await _driverRepository.getAvailableDriversOnce(true);
+              await widget.driverRepository.getAvailableDriversOnce(true);
 
           // Find the nearest available driver
           assignedDriverId = PathFindingUtils.findNearestAvailableDriver(
@@ -86,7 +90,7 @@ class TaskAssignmentScreenState extends State<TaskAssignmentScreen> {
           source: sourceNode.displayName,
           destination: destinationNode.displayName,
           assignedDriver: assignedDriverId != null
-              ? _driverRepository.getDriver(assignedDriverId)
+              ? widget.driverRepository.getDriver(assignedDriverId)
               : null,
           createdBy: supervisorRef,
           status: TaskStatus.pending,
@@ -100,7 +104,7 @@ class TaskAssignmentScreenState extends State<TaskAssignmentScreen> {
           isQueued: assignedDriverId == null,
         );
 
-        await _taskRepository.createTask(task);
+        await widget.taskRepository.createTask(task);
 
         if (!mounted) return;
         AppUtils.showSnackBar(
