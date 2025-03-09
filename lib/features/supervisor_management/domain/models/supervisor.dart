@@ -31,10 +31,10 @@ class Supervisor implements FirebaseModel {
       'email': email,
       'phoneNumber': phoneNumber,
       'fcmToken': fcmToken,
-    //   'joinDate': Timestamp.fromDate(joinDate),
-    //   'managedAreas': managedAreas,
-    //   'permissions': permissions,
-    //   'schedule': schedule,
+      //   'joinDate': Timestamp.fromDate(joinDate),
+      //   'managedAreas': managedAreas,
+      //   'permissions': permissions,
+      //   'schedule': schedule,
     };
   }
 

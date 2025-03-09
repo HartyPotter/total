@@ -42,7 +42,7 @@ class Driver implements FirebaseModel {
   final String? fcmToken;
   final DocumentReference? currentTask;
   final DocumentReference? assignedForklift;
-  final String? currentLocation;
+  final GeoPoint? currentLocation; // Change this to Geopoint
 
   Driver({
     required this.id,
@@ -81,7 +81,7 @@ class Driver implements FirebaseModel {
       fcmToken: map['fcmToken'],
       currentTask: map['currentTask'] as DocumentReference?,
       assignedForklift: map['assignedForklift'] as DocumentReference?,
-      currentLocation: map['currentLocation'],
+      currentLocation: map['currentLocation'] as GeoPoint?,
     );
   }
 
@@ -105,7 +105,7 @@ class Driver implements FirebaseModel {
       fcmToken: fcmToken ?? this.fcmToken,
       currentTask: currentTask ?? this.currentTask,
       assignedForklift: assignedForklift ?? this.assignedForklift,
-      currentLocation: currentLocation ?? this.currentLocation,
+      currentLocation: currentLocation as GeoPoint? ?? this.currentLocation,
     );
   }
 }

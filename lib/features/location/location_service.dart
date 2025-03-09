@@ -20,7 +20,7 @@ class LocationService {
       )).listen((Position position) async {
         // Update driver's location in Firestore
         await _firestore.collection('drivers').doc(driverId).update({
-          'currentLocation': "$position.latitude, $position.longitude",
+          'currentLocation': GeoPoint(position.latitude, position.longitude),
           'lastUpdated': FieldValue.serverTimestamp(),
         });
       });
