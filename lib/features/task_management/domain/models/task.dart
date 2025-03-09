@@ -113,6 +113,56 @@ class Task implements FirebaseModel {
     );
   }
 
+  // Convert Task to JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'source': source,
+      'destination': destination,
+      'assignedDriverId': assignedDriver?.id,
+      'createdById': createdBy.id,
+      'status': status.toJson(),
+      'createdAt': createdAt.millisecondsSinceEpoch,
+      'type': type,
+      'numberOfPallets': numberOfPallets,
+      'estimatedTime': estimatedTime,
+      'startTime': startTime?.millisecondsSinceEpoch,
+      'endTime': endTime?.millisecondsSinceEpoch,
+      'duration': duration,
+      'isQueued': isQueued,
+    };
+  }
+
+  // Create Task from JSON
+  factory Task.fromJson(Map<String, dynamic> json) {
+    final FirebaseFirestore firestore = FirebaseFirestore.instance;
+    
+    return Task(
+      id: json['id'],
+      name: json['name'] ?? '',
+      source: json['source'] ?? '',
+      destination: json['destination'] ?? '',
+      assignedDriver: json['assignedDriverId'] != null 
+          ? firestore.collection('drivers').doc(json['assignedDriverId'])
+          : null,
+      createdBy: firestore.collection('users').doc(json['createdById']),
+      status: TaskStatus.fromJson(json['status'] ?? AppConstants.taskStatusPending),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(json['createdAt']),
+      type: json['type'] ?? AppConstants.taskTypePickup,
+      numberOfPallets: json['numberOfPallets'] ?? 0,
+      estimatedTime: json['estimatedTime'] ?? 0,
+      startTime: json['startTime'] != null 
+          ? DateTime.fromMillisecondsSinceEpoch(json['startTime']) 
+          : null,
+      endTime: json['endTime'] != null 
+          ? DateTime.fromMillisecondsSinceEpoch(json['endTime']) 
+          : null,
+      duration: json['duration'] ?? 0,
+      isQueued: json['isQueued'] ?? false,
+    );
+  }
+
   Task copyWith({
     String? id,
     String? name,
