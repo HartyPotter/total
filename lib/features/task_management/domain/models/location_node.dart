@@ -73,6 +73,28 @@ class LocationNode {
     );
   }
 
+  // Convert LocationNode to JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'latitude': latitude,
+      'longitude': longitude,
+      'connectedNodes': connectedNodes,
+    };
+  }
+
+  // Create LocationNode from JSON
+  factory LocationNode.fromJson(Map<String, dynamic> json) {
+    return LocationNode(
+      id: json['id'] ?? '',
+      name: json['name'] ?? 'Unknown Location',
+      latitude: json['latitude'] ?? 0.0,
+      longitude: json['longitude'] ?? 0.0,
+      connectedNodes: List<String>.from(json['connectedNodes'] ?? []),
+    );
+  }
+
   @override
   String toString() => name;
 
