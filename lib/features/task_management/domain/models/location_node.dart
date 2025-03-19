@@ -19,52 +19,25 @@ class LocationNode {
     final name = AppConstants.locationNodes[nodeId] ?? 'Unknown Location';
     final coordinates =
         AppConstants.locationCoordinates[nodeId] ?? {'lat': 0.0, 'lng': 0.0};
-
-    // Define the connected nodes for each location
-    // This could be moved to AppConstants if the connections are static
-    final Map<String, List<String>> nodeConnections = {
-      'A': ['B', 'C'], // IBCs Storage Area connects to Warehouse and Decanting
-      'B': [
-        'A',
-        'D',
-        'F'
-      ], // Warehouse connects to IBCs, Loading Bay, and Raw Materials
-      'C': ['A', 'G', 'H'], // Decanting connects to IBCs and Production Lines
-      'D': ['B', 'E'], // Loading Bay connects to Warehouse and Finished Goods
-      'E': ['D', 'J'], // Finished Goods connects to Loading Bay and Packaging
-      'F': [
-        'B',
-        'G'
-      ], // Raw Materials connects to Warehouse and Production Line 1
-      'G': [
-        'C',
-        'F',
-        'I'
-      ], // Production Line 1 connects to Decanting, Raw Materials, and QC
-      'H': ['C', 'I'], // Production Line 2 connects to Decanting and QC
-      'I': [
-        'G',
-        'H',
-        'J'
-      ], // Quality Control connects to Production Lines and Packaging
-      'J': ['E', 'I'], // Packaging connects to Finished Goods and QC
-    };
+    final connectedNodes = AppConstants.graphEdges[nodeId] ?? [];
 
     return LocationNode(
       id: nodeId,
       name: name,
       latitude: coordinates['lat'] ?? 0.0,
       longitude: coordinates['lng'] ?? 0.0,
-      connectedNodes: nodeConnections[nodeId] ?? [],
+      connectedNodes: connectedNodes,
     );
   }
 
+  // Get all nodes as a list
   static List<LocationNode> getAllNodes() {
     return AppConstants.locationNodes.keys
         .map((nodeId) => LocationNode.fromId(nodeId))
         .toList();
   }
 
+  // Get all nodes as a map (node ID -> LocationNode)
   static Map<String, LocationNode> getNodesMap() {
     return Map.fromEntries(
       AppConstants.locationNodes.keys.map(
@@ -98,5 +71,6 @@ class LocationNode {
   @override
   String toString() => name;
 
-  String get displayName => '$id: $name';
+  String get displayName => name;
+  String get node => id;
 }

@@ -22,7 +22,7 @@ class LoginScreen extends StatefulWidget {
 
 class LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authRepository = AuthRepository();
   final _firestore = FirebaseFirestore.instance;
@@ -31,12 +31,12 @@ class LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  Future<DocumentReference?> _selectForklift(BuildContext context) async {
+  Future<String?> _selectForklift(BuildContext context) async {
     if (!mounted) return null;
     final forkliftsSnapshot = await _firestore
         .collection(AppConstants.forkliftsCollection)
@@ -45,7 +45,7 @@ class LoginScreenState extends State<LoginScreen> {
 
     if (!mounted) return null;
 
-    final forkliftRef = await showDialog<DocumentReference>(
+    final forkliftId = await showDialog<String>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
@@ -68,11 +68,7 @@ class LoginScreenState extends State<LoginScreen> {
                         title: Text(forklift.model),
                         subtitle: Text('S/N: ${forklift.serialNumber}'),
                         onTap: () {
-                          Navigator.of(context).pop(
-                            _firestore
-                                .collection(AppConstants.forkliftsCollection)
-                                .doc(forklift.id),
-                          );
+                          Navigator.of(context).pop(forklift.id);
                         },
                       );
                     },
@@ -89,7 +85,7 @@ class LoginScreenState extends State<LoginScreen> {
       },
     );
 
-    return forkliftRef;
+    return forkliftId;
   }
 
   Future<void> _login() async {
@@ -99,8 +95,9 @@ class LoginScreenState extends State<LoginScreen> {
       });
 
       try {
+        final email = '${_usernameController.text}@gmail.com';
         final userCredential = await _authRepository.signIn(
-          _emailController.text,
+          email,
           _passwordController.text,
           _selectedRole,
         );
@@ -117,11 +114,11 @@ class LoginScreenState extends State<LoginScreen> {
         if (user != null) {
           if (_selectedRole == 'driver') {
             // Show forklift selection dialog for drivers
-            final forkliftRef = await _selectForklift(context);
+            final forkliftId = await _selectForklift(context);
 
             if (!mounted) return;
 
-            if (forkliftRef == null) {
+            if (forkliftId == null) {
               AppUtils.showSnackBar(
                 context,
                 'Please select a forklift to continue',
@@ -130,21 +127,24 @@ class LoginScreenState extends State<LoginScreen> {
               return;
             }
 
-            // Update driver's assigned forklift in Firestore
+// Update driver's assigned forklift in Firestore
             await _firestore
                 .collection(AppConstants.driversCollection)
                 .doc(userCredential.user!.uid)
                 .update({
-              'assignedForklift': forkliftRef,
+              'assignedForklift':
+                  forkliftId, // Use ID instead of DocumentReference
               'status': AppConstants.driverStatusActive,
             });
 
-            // Update forklift status and current operator
-            await forkliftRef.update({
+// Update forklift status and current operator
+            await _firestore
+                .collection(AppConstants.forkliftsCollection)
+                .doc(forkliftId)
+                .update({
               'status': AppConstants.forkliftStatusInUse,
-              'currentOperator': _firestore
-                  .collection(AppConstants.driversCollection)
-                  .doc(userCredential.user!.uid),
+              'currentOperator': userCredential
+                  .user!.uid, // Use ID instead of DocumentReference
             });
 
             // Refresh driver data with updated forklift
@@ -232,17 +232,17 @@ class LoginScreenState extends State<LoginScreen> {
                                 ),
                             const SizedBox(height: 32),
                             TextFormField(
-                              controller: _emailController,
+                              controller: _usernameController,
                               decoration: InputDecoration(
-                                labelText: 'Email',
+                                labelText: 'Username',
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                prefixIcon: const Icon(Icons.email),
+                                prefixIcon: const Icon(Icons.person),
                               ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Please enter your email';
+                                  return 'Please enter your username';
                                 }
                                 return null;
                               },
@@ -281,7 +281,7 @@ class LoginScreenState extends State<LoginScreen> {
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                prefixIcon: const Icon(Icons.person),
+                                prefixIcon: const Icon(Icons.assignment_ind),
                               ),
                               items: const [
                                 DropdownMenuItem(

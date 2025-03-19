@@ -81,12 +81,14 @@ class DriverHomeScreenState extends State<DriverHomeScreen> {
                 }
 
                 final driverData = driverDoc.data() as Map<String, dynamic>;
-                final forkliftRef =
-                    driverData['assignedForklift'] as DocumentReference?;
+                final forkliftId = driverData['assignedForklift'] as String?;
 
-                if (forkliftRef != null) {
+                if (forkliftId != null) {
                   // Update the forklift's currentOperator to null
-                  await forkliftRef.update({
+                  await _firestore
+                      .collection(AppConstants.forkliftsCollection)
+                      .doc(forkliftId)
+                      .update({
                     'currentOperator': null,
                     'status': AppConstants.forkliftStatusAvailable,
                   });
@@ -243,12 +245,12 @@ class DriverHomeScreenState extends State<DriverHomeScreen> {
                                           task.id,
                                           DateTime.now(),
                                         );
-                                        await taskRepository
-                                            .sendTaskUpdateNotification(
-                                                task.name,
-                                                AppConstants
-                                                    .taskStatusInProgress,
-                                                task.createdBy);
+                                        // await taskRepository
+                                        //     .sendTaskUpdateNotification(
+                                        //         task.name,
+                                        //         AppConstants
+                                        //             .taskStatusInProgress,
+                                        //         task.createdBy);
                                         if (!mounted) return;
                                         AppUtils.showSnackBar(
                                           context,
@@ -287,12 +289,12 @@ class DriverHomeScreenState extends State<DriverHomeScreen> {
                                           task.id,
                                           DateTime.now(),
                                         );
-                                        await taskRepository
-                                            .sendTaskUpdateNotification(
-                                                task.name,
-                                                AppConstants
-                                                    .taskStatusCompleted,
-                                                task.createdBy);
+                                        // await taskRepository
+                                        //     .sendTaskUpdateNotification(
+                                        //         task.name,
+                                        //         AppConstants
+                                        //             .taskStatusCompleted,
+                                        //         task.createdBy);
                                         if (!mounted) return;
                                         AppUtils.showSnackBar(
                                           context,

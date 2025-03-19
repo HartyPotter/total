@@ -40,9 +40,9 @@ class Driver implements FirebaseModel {
   final String phoneNumber;
   final DriverStatus status;
   final String? fcmToken;
-  final DocumentReference? currentTask;
-  final DocumentReference? assignedForklift;
-  final GeoPoint? currentLocation; // Change this to Geopoint
+  final String? currentTask; // Use ID instead of DocumentReference
+  final String? assignedForklift; // Use ID instead of DocumentReference
+  final GeoPoint? currentLocation;
 
   Driver({
     required this.id,
@@ -79,8 +79,8 @@ class Driver implements FirebaseModel {
       status: DriverStatus.fromJson(
           map['status'] ?? AppConstants.driverStatusInactive),
       fcmToken: map['fcmToken'],
-      currentTask: map['currentTask'] as DocumentReference?,
-      assignedForklift: map['assignedForklift'] as DocumentReference?,
+      currentTask: map['currentTask'] as String?,
+      assignedForklift: map['assignedForklift'] as String?,
       currentLocation: map['currentLocation'] as GeoPoint?,
     );
   }
@@ -92,8 +92,8 @@ class Driver implements FirebaseModel {
     String? phoneNumber,
     DriverStatus? status,
     String? fcmToken,
-    DocumentReference? currentTask,
-    DocumentReference? assignedForklift,
+    String? currentTask,
+    String? assignedForklift,
     String? currentLocation,
   }) {
     return Driver(
@@ -108,4 +108,7 @@ class Driver implements FirebaseModel {
       currentLocation: currentLocation as GeoPoint? ?? this.currentLocation,
     );
   }
+
+  String get driverLocation =>
+      currentLocation?.toString() ?? 'Unknown Location';
 }

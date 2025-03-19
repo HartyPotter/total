@@ -124,9 +124,9 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
       case 0:
         return TaskListScreen(taskRepository: taskRepository);
       case 1:
-        return const DriversScreen();
+        return DriversScreen();
       case 2:
-        return const ForkliftsScreen();
+        return ForkliftsScreen();
       case 3:
         return const MapScreen(); // Display the MapScreen
       default:

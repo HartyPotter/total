@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -29,6 +30,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  FirebaseFunctions.instanceFor(region: 'us-central1')
+      .useFunctionsEmulator('10.0.2.2', 5001);
   final authRepository = AuthRepository(); // Initialize AuthRepository
 
   final taskRepository = TaskRepository(null);

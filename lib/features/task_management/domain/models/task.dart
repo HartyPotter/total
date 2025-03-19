@@ -38,8 +38,8 @@ class Task implements FirebaseModel {
   final String name;
   final String source;
   final String destination;
-  final DocumentReference? assignedDriver;
-  final DocumentReference createdBy;
+  final String? assignedDriver; // Use ID instead of DocumentReference
+  final String createdBy; // Use ID instead of DocumentReference
   final TaskStatus status;
   final DateTime createdAt;
   final String type;
@@ -94,8 +94,8 @@ class Task implements FirebaseModel {
       name: map['name'] ?? '',
       source: map['source'] ?? '',
       destination: map['destination'] ?? '',
-      assignedDriver: map['assignedDriver'] as DocumentReference?,
-      createdBy: map['createdBy'],
+      assignedDriver: map['assignedDriver'] as String?,
+      createdBy: map['createdBy'] as String,
       status:
           TaskStatus.fromJson(map['status'] ?? AppConstants.taskStatusPending),
       createdAt: (map['createdAt'] as Timestamp).toDate(),
@@ -120,8 +120,8 @@ class Task implements FirebaseModel {
       'name': name,
       'source': source,
       'destination': destination,
-      'assignedDriverId': assignedDriver?.id,
-      'createdById': createdBy.id,
+      'assignedDriver': assignedDriver,
+      'createdBy': createdBy,
       'status': status.toJson(),
       'createdAt': createdAt.millisecondsSinceEpoch,
       'type': type,
@@ -137,26 +137,25 @@ class Task implements FirebaseModel {
   // Create Task from JSON
   factory Task.fromJson(Map<String, dynamic> json) {
     final FirebaseFirestore firestore = FirebaseFirestore.instance;
-    
+
     return Task(
       id: json['id'],
       name: json['name'] ?? '',
       source: json['source'] ?? '',
       destination: json['destination'] ?? '',
-      assignedDriver: json['assignedDriverId'] != null 
-          ? firestore.collection('drivers').doc(json['assignedDriverId'])
-          : null,
-      createdBy: firestore.collection('users').doc(json['createdById']),
-      status: TaskStatus.fromJson(json['status'] ?? AppConstants.taskStatusPending),
+      assignedDriver: json['assignedDriverId'] ?? '',
+      createdBy: json['createdBy'] ?? '',
+      status:
+          TaskStatus.fromJson(json['status'] ?? AppConstants.taskStatusPending),
       createdAt: DateTime.fromMillisecondsSinceEpoch(json['createdAt']),
       type: json['type'] ?? AppConstants.taskTypePickup,
       numberOfPallets: json['numberOfPallets'] ?? 0,
       estimatedTime: json['estimatedTime'] ?? 0,
-      startTime: json['startTime'] != null 
-          ? DateTime.fromMillisecondsSinceEpoch(json['startTime']) 
+      startTime: json['startTime'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['startTime'])
           : null,
-      endTime: json['endTime'] != null 
-          ? DateTime.fromMillisecondsSinceEpoch(json['endTime']) 
+      endTime: json['endTime'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['endTime'])
           : null,
       duration: json['duration'] ?? 0,
       isQueued: json['isQueued'] ?? false,
@@ -168,8 +167,8 @@ class Task implements FirebaseModel {
     String? name,
     String? source,
     String? destination,
-    DocumentReference? assignedDriver,
-    DocumentReference? createdBy,
+    String? assignedDriver,
+    String? createdBy,
     TaskStatus? status,
     DateTime? createdAt,
     String? type,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:total_flutter/core/constants/app_constants.dart';
 import 'package:total_flutter/features/task_management/domain/models/task.dart';
 import 'package:total_flutter/features/driver_management/domain/models/driver.dart';
 import 'package:total_flutter/features/task_management/data/task_repository.dart';
@@ -11,8 +12,11 @@ class TaskListScreen extends StatelessWidget {
 
   const TaskListScreen({super.key, required this.taskRepository});
 
-  Future<Driver?> _fetchDriver(DocumentReference reference) async {
-    final doc = await reference.get();
+  Future<Driver?> _fetchDriver(String driverId) async {
+    final doc = await FirebaseFirestore.instance
+        .collection(AppConstants.driversCollection)
+        .doc(driverId)
+        .get();
     if (doc.exists) {
       return Driver.fromMap(doc.data() as Map<String, dynamic>, doc.id);
     }

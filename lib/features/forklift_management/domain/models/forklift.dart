@@ -37,11 +37,11 @@ class Forklift implements FirebaseModel {
   final String id;
   final String model;
   final String serialNumber;
-  final int capacity; // in kilograms
+  final int capacity;
   final ForkliftStatus status;
   final DateTime lastMaintenance;
   final DateTime nextMaintenanceDue;
-  final DocumentReference? currentOperator;
+  final String? currentOperator; // Use ID instead of DocumentReference
   final String location;
   final Map<String, dynamic>? specifications;
   final bool isOperational;
@@ -86,7 +86,7 @@ class Forklift implements FirebaseModel {
           map['status'] ?? AppConstants.forkliftStatusAvailable),
       lastMaintenance: (map['lastMaintenance'] as Timestamp).toDate(),
       nextMaintenanceDue: (map['nextMaintenanceDue'] as Timestamp).toDate(),
-      currentOperator: map['currentOperator'] as DocumentReference?,
+      currentOperator: map['currentOperator'] as String?,
       location: map['location'] ?? '',
       specifications: map['specifications'],
       isOperational: map['isOperational'] ?? true,
@@ -101,7 +101,7 @@ class Forklift implements FirebaseModel {
     ForkliftStatus? status,
     DateTime? lastMaintenance,
     DateTime? nextMaintenanceDue,
-    DocumentReference? currentOperator,
+    String? currentOperator,
     String? location,
     Map<String, dynamic>? specifications,
     bool? isOperational,

@@ -29,32 +29,50 @@ class AppConstants {
   static const String roleDriver = 'driver';
   static const String roleSupervisor = 'supervisor';
 
-  // Location Nodes
+  // Location Nodes: Map node IDs to friendly names
   static const Map<String, String> locationNodes = {
-    'A': 'IBCs Storage Area',
-    'B': 'Warehouse',
-    'C': 'Decanting',
-    'D': 'Loading Bay',
-    'E': 'Finished Goods',
-    'F': 'Raw Materials',
-    'G': 'Production Line 1',
-    'H': 'Production Line 2',
-    'I': 'Quality Control',
-    'J': 'Packaging',
+    "C_K_11": "IBCs Storage Area",
+    "C_K_9": "Warehouse",
+    "J_B_12": "Dispatching",
+    "J": "Decanting",
+    "J_B_8": "FP drums WH",
+    "J_B_3": "Empty Packs WH",
+    "I_J_11": "Epty Drums WH",
+    "I_J_14": "Production",
+    "J_K_9": "FP WH",
+    "K_H_9": "Old Dock",
   };
 
-  // Location Coordinates (latitude, longitude)
+  // Location Coordinates: Map node IDs to latitude and longitude
   static const Map<String, Map<String, double>> locationCoordinates = {
-    'A': {'lat': -26.2041, 'lng': 28.0473}, // Example coordinates
-    'B': {'lat': -26.2042, 'lng': 28.0474},
-    'C': {'lat': -26.2043, 'lng': 28.0475},
-    'D': {'lat': -26.2044, 'lng': 28.0476},
-    'E': {'lat': -26.2045, 'lng': 28.0477},
-    'F': {'lat': -26.2046, 'lng': 28.0478},
-    'G': {'lat': -26.2047, 'lng': 28.0479},
-    'H': {'lat': -26.2048, 'lng': 28.0480},
-    'I': {'lat': -26.2049, 'lng': 28.0481},
-    'J': {'lat': -26.2050, 'lng': 28.0482},
+    'A': {'lat': 30.820554604623414, 'lng': 29.546057483127896},
+    'B': {'lat': 30.820260057121438, 'lng': 29.546270280117717},
+    'C': {'lat': 30.819639025614194, 'lng': 29.54673734605301},
+    'D': {'lat': 30.81944089144428, 'lng': 29.546910381899725},
+    'E': {'lat': 30.81941010028658, 'lng': 29.54717383287354},
+    'F': {'lat': 30.820099552109408, 'lng': 29.548369495002003},
+    'G': {'lat': 30.820360605393255, 'lng': 29.54830558086204},
+    'H': {'lat': 30.82045833284901, 'lng': 29.54824946112797},
+    'I': {'lat': 30.821102260595847, 'lng': 29.547774002266603},
+    'J': {'lat': 30.820669852207352, 'lng': 29.54700391479106},
+    'K': {'lat': 30.82005135758362, 'lng': 29.547441960493085},
+    'L': {'lat': 30.821219798821193, 'lng': 29.547916639191765},
+  };
+
+  // Graph edges: Map node IDs to their connected nodes
+  static const Map<String, List<String>> graphEdges = {
+    'A': ['B'],
+    'B': ['A', 'C', 'J'],
+    'C': ['B', 'D', 'K'],
+    'D': ['C', 'E'],
+    'E': ['D', 'F'],
+    'F': ['E', 'G'],
+    'G': ['F', 'H'],
+    'H': ['G', 'I', 'K'],
+    'I': ['H', 'L', 'J'],
+    'J': ['B', 'I', 'K'],
+    'K': ['C', 'H', 'J'],
+    'L': ['I'],
   };
 
   // Notification Channel

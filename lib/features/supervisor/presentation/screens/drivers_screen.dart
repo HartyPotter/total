@@ -8,18 +8,26 @@ import 'package:total_flutter/core/constants/app_constants.dart';
 import 'package:total_flutter/core/widgets/modern_card.dart';
 
 class DriversScreen extends StatelessWidget {
-  const DriversScreen({super.key});
+  DriversScreen({super.key});
 
-  Future<Task?> _fetchCurrentTask(DocumentReference reference) async {
-    final doc = await reference.get();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  Future<Task?> _fetchCurrentTask(String taskId) async {
+    final doc = await _firestore
+        .collection(AppConstants.tasksCollection)
+        .doc(taskId)
+        .get();
     if (doc.exists) {
       return Task.fromMap(doc.data() as Map<String, dynamic>, doc.id);
     }
     return null;
   }
 
-  Future<Forklift?> _fetchForklift(DocumentReference reference) async {
-    final doc = await reference.get();
+  Future<Forklift?> _fetchForklift(String forkliftId) async {
+    final doc = await _firestore
+        .collection(AppConstants.forkliftsCollection)
+        .doc(forkliftId)
+        .get();
     if (doc.exists) {
       return Forklift.fromMap(doc.data() as Map<String, dynamic>, doc.id);
     }
@@ -83,7 +91,7 @@ class DriversScreen extends StatelessWidget {
                         Text(driver.phoneNumber),
                         if (driver.currentLocation != null) ...[
                           const SizedBox(height: 4),
-                          Text('Current Location: ${driver.currentLocation}'),
+                          Text('Current Location: ${driver.driverLocation}'),
                         ],
                         if (driver.assignedForklift != null) ...[
                           const SizedBox(height: 4),

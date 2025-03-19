@@ -50,3 +50,4 @@ app.*.map.json
 /keys
 drivers.json
 functions
+Cloud_Functions

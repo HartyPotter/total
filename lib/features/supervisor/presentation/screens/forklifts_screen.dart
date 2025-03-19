@@ -6,7 +6,8 @@ import 'package:total_flutter/core/constants/app_constants.dart';
 import 'package:total_flutter/core/widgets/modern_card.dart';
 
 class ForkliftsScreen extends StatelessWidget {
-  const ForkliftsScreen({super.key});
+  ForkliftsScreen({super.key});
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +64,10 @@ class ForkliftsScreen extends StatelessWidget {
                     Text('Capacity: ${forklift.capacity} Pallets'),
                     if (forklift.currentOperator != null)
                       FutureBuilder<DocumentSnapshot>(
-                        future: forklift.currentOperator!.get(),
+                        future: _firestore
+                            .collection(AppConstants.driversCollection)
+                            .doc(forklift.currentOperator!)
+                            .get(),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {

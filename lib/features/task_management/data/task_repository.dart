@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:total_flutter/core/config/app_config.dart';
 import 'package:total_flutter/features/auth/data/auth_repository.dart';
 import 'package:total_flutter/features/supervisor_management/domain/models/supervisor.dart';
@@ -50,20 +51,27 @@ class TaskRepository {
   }
 
   Future<void> createTask(Task task) async {
-    final taskMap = task.toMap();
+    try {
+      // Get Firebase Functions instance
+      final functions = FirebaseFunctions.instance;
 
-    await _firestore.collection(AppConstants.tasksCollection).add(taskMap);
+      // Convert the task to a map that can be sent to the function
+      final taskData = task.toJson();
 
-    // Only send notification if a driver is assigned
-    if (task.assignedDriver != null) {
-      final driverDoc = await task.assignedDriver!.get();
-      final data = driverDoc.data() as Map<String, dynamic>;
-      final fcmToken = data['fcmToken'];
-
-      if (fcmToken != null) {
-        await _driverRepository?.sendNotificationToDriver(
-            task.assignedDriver!.id, task.name, task.createdBy);
+      print("------------------$taskData----------------");
+      // Call the Cloud Function
+      final result =
+          await functions.httpsCallable('create_task').call(taskData);
+      print("------------------${result.data}----------------");
+      // Handle the response
+      if (result.data[0]['success'] == true) {
+        print('Task created successfully via Cloud Function');
+      } else {
+        throw Exception('Failed to create task: ${result.data['error']}');
       }
+    } catch (e) {
+      print('Error creating task: $e');
+      throw e;
     }
   }
 
@@ -196,26 +204,21 @@ class TaskRepository {
   Future<void> _assignTaskToDriver(
       String taskId, String driverId, Task task) async {
     try {
-      // Create a DocumentReference for the driver
-      final driverRef =
-          _firestore.collection(AppConstants.driversCollection).doc(driverId);
-
-      // Update the task with the driver's DocumentReference
+      // Update the task with the driver's ID
       await _firestore
           .collection(AppConstants.tasksCollection)
           .doc(taskId)
           .update({
-        'assignedDriver':
-            driverRef, // Use DocumentReference instead of driverId
+        'assignedDriver': driverId, // Use ID instead of DocumentReference
         'isQueued': false,
       });
 
       // Send a notification to the driver
-      await _driverRepository?.sendNotificationToDriver(
-        driverId,
-        task.name,
-        task.createdBy,
-      );
+      // await _driverRepository?.sendNotificationToDriver(
+      //   driverId,
+      //   task.name,
+      //   task.createdBy,
+      // );
 
       print('Task $taskId assigned to driver $driverId');
     } catch (e) {
