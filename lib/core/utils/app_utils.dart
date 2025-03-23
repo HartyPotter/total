@@ -131,7 +131,7 @@ class AppUtils {
       return AppConstants.validationRequiredField;
     }
     if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-      return AppConstants.validationInvalidEmail;
+      return AppConstants.validationInvalidUsername;
     }
     return null;
   }

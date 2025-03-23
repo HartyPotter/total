@@ -21,11 +21,11 @@ class SupervisorHomeScreen extends StatefulWidget {
 }
 
 class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
-  final AuthRepository _authRepository = AuthRepository();
   int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
+    final authRepository = Provider.of<AuthRepository>(context);
     final taskRepository = Provider.of<TaskRepository>(context);
     final driverRepository = Provider.of<DriverRepository>(context);
 
@@ -44,7 +44,7 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
 
               if (!confirmed || !mounted) return;
 
-              await _authRepository.signOut();
+              await authRepository.signOut();
               if (!mounted) return;
               Navigator.pushReplacement(
                 context,
@@ -113,7 +113,7 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
       case 3:
         return 'Map'; // Title for the Map tab
       default:
-        return 'Supervisor Dashboard';
+        return 'Tasks';
     }
   }
 
@@ -122,7 +122,7 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
 
     switch (_selectedIndex) {
       case 0:
-        return TaskListScreen(taskRepository: taskRepository);
+        return TaskListScreen();
       case 1:
         return DriversScreen();
       case 2:
@@ -130,7 +130,7 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
       case 3:
         return const MapScreen(); // Display the MapScreen
       default:
-        return TaskListScreen(taskRepository: taskRepository);
+        return TaskListScreen();
     }
   }
 }

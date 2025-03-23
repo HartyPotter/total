@@ -1,9 +1,9 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:total_flutter/features/driver/data/driver_repository.dart';
 
 class LocationService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String driverId;
 
   LocationService(this.driverId);
@@ -19,10 +19,14 @@ class LocationService {
         distanceFilter: 100,
       )).listen((Position position) async {
         // Update driver's location in Firestore
-        await _firestore.collection('drivers').doc(driverId).update({
-          'currentLocation': GeoPoint(position.latitude, position.longitude),
-          'lastUpdated': FieldValue.serverTimestamp(),
-        });
+        await DriverRepository().updateDriverLocation(
+          driverId,
+          GeoPoint(position.latitude, position.longitude),
+        );
+        // await _firestore.collection('drivers').doc(driverId).update({
+        //   'currentLocation': GeoPoint(position.latitude, position.longitude),
+        //   'lastUpdated': FieldValue.serverTimestamp(),
+        // });
       });
     } else {
       // Handle the case when permissions are not granted

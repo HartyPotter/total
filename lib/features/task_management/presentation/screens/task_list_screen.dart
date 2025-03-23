@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import 'package:total_flutter/core/constants/app_constants.dart';
 import 'package:total_flutter/features/task_management/domain/models/task.dart';
-import 'package:total_flutter/features/driver_management/domain/models/driver.dart';
+import 'package:total_flutter/features/driver/domain/driver.dart';
 import 'package:total_flutter/features/task_management/data/task_repository.dart';
 import 'package:total_flutter/core/utils/app_utils.dart';
 import 'package:total_flutter/core/widgets/modern_card.dart';
 
 class TaskListScreen extends StatelessWidget {
-  final TaskRepository taskRepository;
+  // final TaskRepository taskRepository;
 
-  const TaskListScreen({super.key, required this.taskRepository});
+  const TaskListScreen({super.key});
 
   Future<Driver?> _fetchDriver(String driverId) async {
     final doc = await FirebaseFirestore.instance
@@ -25,8 +26,10 @@ class TaskListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final taskRepository = Provider.of<TaskRepository>(context);
+
     return StreamBuilder<List<Task>>(
-      stream: taskRepository.getTasksStream(),
+      stream: taskRepository.getAllTasks(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));

@@ -8,7 +8,7 @@ import 'package:total_flutter/features/driver/data/driver_repository.dart';
 import 'package:total_flutter/core/constants/app_constants.dart';
 import 'package:total_flutter/core/utils/app_utils.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:total_flutter/features/driver_management/domain/models/driver.dart';
+import 'package:total_flutter/features/driver/domain/driver.dart';
 import 'package:total_flutter/features/location/location_service.dart'; // Import the LocationService
 
 class DriverHomeScreen extends StatefulWidget {
@@ -23,7 +23,7 @@ class DriverHomeScreen extends StatefulWidget {
 class DriverHomeScreenState extends State<DriverHomeScreen> {
   String? _selectedFilter;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final supervisorNames = <DocumentReference, String>{};
+  final supervisorNames = <String, String>{};
   late LocationService _locationService;
 
   Future<void> _fetchSupervisorNames() async {
@@ -31,7 +31,37 @@ class DriverHomeScreenState extends State<DriverHomeScreen> {
         await _firestore.collection(AppConstants.supervisorsCollection).get();
 
     for (final doc in supervisorsSnapshot.docs) {
-      supervisorNames[doc.reference] = doc['name'];
+      supervisorNames[doc.id] = doc['name'];
+    }
+  }
+
+  Future<void> _logout() async {
+    final confirmed = await AppUtils.showConfirmationDialog(
+      context,
+      title: 'Logout',
+      message: 'Are you sure you want to logout?',
+    );
+
+    if (!confirmed || !mounted) return;
+
+    try {
+      // Access repositories using Provider
+      final driverRepository =
+          Provider.of<DriverRepository>(context, listen: false);
+      final authRepository =
+          Provider.of<AuthRepository>(context, listen: false);
+
+      // Update the forklift's currentOperator to null
+      await driverRepository.logoutDriver(widget.driver.id);
+
+      await authRepository.signOut();
+    } catch (e) {
+      if (!mounted) return;
+      AppUtils.showSnackBar(
+        context,
+        'Error during logout: $e',
+        isError: true,
+      );
     }
   }
 
@@ -56,62 +86,7 @@ class DriverHomeScreenState extends State<DriverHomeScreen> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
-              final confirmed = await AppUtils.showConfirmationDialog(
-                context,
-                title: 'Logout',
-                message: 'Are you sure you want to logout?',
-              );
-
-              if (!confirmed || !mounted) return;
-              try {
-                // Fetch the driver's assigned forklift
-                final driverDoc = await _firestore
-                    .collection(AppConstants.driversCollection)
-                    .doc(widget.driver.id)
-                    .get();
-
-                if (!driverDoc.exists) {
-                  if (!mounted) return;
-                  AppUtils.showSnackBar(
-                    context,
-                    'Driver data not found',
-                    isError: true,
-                  );
-                  return;
-                }
-
-                final driverData = driverDoc.data() as Map<String, dynamic>;
-                final forkliftId = driverData['assignedForklift'] as String?;
-
-                if (forkliftId != null) {
-                  // Update the forklift's currentOperator to null
-                  await _firestore
-                      .collection(AppConstants.forkliftsCollection)
-                      .doc(forkliftId)
-                      .update({
-                    'currentOperator': null,
-                    'status': AppConstants.forkliftStatusAvailable,
-                  });
-                }
-
-                // Update the driver's status to inactive
-                await _firestore
-                    .collection(AppConstants.driversCollection)
-                    .doc(widget.driver.id)
-                    .update({
-                  'status': AppConstants.driverStatusInactive,
-                  'assignedForklift': null, // Clear the assigned forklift
-                });
-              } catch (e) {
-                if (!mounted) return;
-                AppUtils.showSnackBar(
-                  context,
-                  'Error during logout: $e',
-                  isError: true,
-                );
-              }
-              await authRepository.signOut();
-
+              await _logout();
               if (!mounted) return;
 
               Navigator.pushReplacement(
@@ -171,11 +146,9 @@ class DriverHomeScreenState extends State<DriverHomeScreen> {
           ),
           Expanded(
             child: StreamBuilder<List<Task>>(
-              stream: taskRepository.getTasksStream(
-                driverRef: _firestore
-                    .collection(AppConstants.driversCollection)
-                    .doc(widget.driver.id),
-                status: _selectedFilter,
+              stream: driverRepository.getAssignedTasksByStatus(
+                widget.driver.id,
+                _selectedFilter,
               ),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
@@ -231,26 +204,9 @@ class DriverHomeScreenState extends State<DriverHomeScreen> {
                                   ElevatedButton(
                                     onPressed: () async {
                                       try {
-                                        await taskRepository.updateTaskStatus(
-                                          task.id,
-                                          AppConstants.taskStatusInProgress,
-                                        );
-                                        // Update the driver's status to busy
-                                        await driverRepository
-                                            .updateDriverStatus(
-                                                widget.driver.id,
-                                                AppConstants.driverStatusBusy);
                                         await taskRepository
-                                            .updateTaskStartTime(
-                                          task.id,
-                                          DateTime.now(),
-                                        );
-                                        // await taskRepository
-                                        //     .sendTaskUpdateNotification(
-                                        //         task.name,
-                                        //         AppConstants
-                                        //             .taskStatusInProgress,
-                                        //         task.createdBy);
+                                            .acceptTask(task.id);
+
                                         if (!mounted) return;
                                         AppUtils.showSnackBar(
                                           context,
@@ -276,25 +232,9 @@ class DriverHomeScreenState extends State<DriverHomeScreen> {
                                   ElevatedButton(
                                     onPressed: () async {
                                       try {
-                                        await taskRepository.updateTaskStatus(
+                                        await taskRepository.completeTask(
                                           task.id,
-                                          AppConstants.taskStatusCompleted,
                                         );
-                                        await driverRepository
-                                            .updateDriverStatus(
-                                                widget.driver.id,
-                                                AppConstants
-                                                    .driverStatusActive);
-                                        await taskRepository.updateTaskEndTime(
-                                          task.id,
-                                          DateTime.now(),
-                                        );
-                                        // await taskRepository
-                                        //     .sendTaskUpdateNotification(
-                                        //         task.name,
-                                        //         AppConstants
-                                        //             .taskStatusCompleted,
-                                        //         task.createdBy);
                                         if (!mounted) return;
                                         AppUtils.showSnackBar(
                                           context,

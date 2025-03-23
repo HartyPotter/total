@@ -1,147 +1,316 @@
-import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:total_flutter/features/auth/data/auth_repository.dart';
-import 'package:total_flutter/features/supervisor_management/domain/models/supervisor.dart';
 import 'package:total_flutter/core/constants/app_constants.dart';
-import 'package:total_flutter/core/config/app_config.dart';
-import 'package:http/http.dart' as http;
-import 'package:total_flutter/features/task_management/data/task_repository.dart';
+import 'package:total_flutter/features/driver/domain/driver.dart';
+import 'package:total_flutter/features/task_management/domain/models/task.dart';
 
 class DriverRepository {
-  final TaskRepository _taskRepository;
-
-  DriverRepository(this._taskRepository); // Inject TaskRepository
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final AuthRepository _authRepository = AuthRepository();
 
-  Stream<List<Map<String, dynamic>>> getAvailableDrivers() {
-    return _firestore
-        .collection(AppConstants.driversCollection)
-        .where('status', whereIn: [
-          AppConstants.driverStatusActive,
-          AppConstants.driverStatusBusy
-        ])
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs.map((doc) {
-            final data = doc.data();
-            return {
-              'id': doc.id,
-              'name': data['name'] ?? 'Unknown',
-              'status': data['status'] ?? AppConstants.driverStatusInactive,
-            };
-          }).toList();
-        });
+  // Constructor
+  DriverRepository();
+
+  // 1. Create a Driver
+  Future<void> createDriver(Map<String, dynamic> driver) async {
+    try {
+      await _firestore
+          .collection(AppConstants.driversCollection)
+          .doc(driver["id"])
+          .set(driver);
+    } catch (e) {
+      print('Error creating driver: $e');
+      rethrow;
+    }
   }
 
-  Future<void> sendNotificationToDriver(
-      String driverId, String taskName, DocumentReference supervisorRef) async {
-    print(
-        '--------------------Notification sent to driver--------------------');
-    final driverDoc = await _firestore
-        .collection(AppConstants.driversCollection)
-        .doc(driverId)
-        .get();
-    final fcmToken = driverDoc.data()?['fcmToken'];
-
-    if (fcmToken != null) {
-      try {
-        // Fetch the supervisor's name using the DocumentReference
-        final supervisorDoc = await supervisorRef.get();
-        final supervisor = Supervisor.fromMap(
-            supervisorDoc.data() as Map<String, dynamic>, supervisorDoc.id);
-        final supervisorName = supervisor.name;
-
-        final message = {
-          "message": {
-            "token": fcmToken,
-            "notification": {
-              "title": "New Task Assigned",
-              "body": "You have a new task: $taskName from $supervisorName",
-            },
-            "data": {"taskName": taskName, "supervisorName": supervisorName}
-          }
-        };
-
-        final response = await http.post(
-          Uri.parse(AppConfig.fcmApiEndpoint),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ${await _authRepository.getAccessToken()}',
-          },
-          body: json.encode(message),
-        );
-
-        if (response.statusCode == 200) {
-          print('Notification sent successfully');
-        } else {
-          print('Failed to send notification: ${response.body}');
-        }
-      } catch (e) {
-        print('Error sending notification: $e');
+  // 2. Get a Driver by ID
+  Future<Driver?> getDriverById(String driverId) async {
+    try {
+      final doc = await _firestore
+          .collection(AppConstants.driversCollection)
+          .doc(driverId)
+          .get();
+      if (doc.exists) {
+        return Driver.fromMap(doc.data() as Map<String, dynamic>, doc.id);
       }
-    } else {
-      print('Driver FCM token not found');
+      return null;
+    } catch (e) {
+      print('Error fetching driver by ID: $e');
+      rethrow;
     }
   }
 
-  // Future<List<Map<String, dynamic>>> getAvailableDriversOnce() async {
-  //   final snapshot = await _firestore
-  //       .collection(AppConstants.driversCollection)
-  //       .where('status', whereIn: [
-  //     AppConstants.driverStatusActive,
-  //     // AppConstants.driverStatusBusy
-  //   ]).get();
-
-  //   return snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
-  // }
-
-  Future<List<Map<String, dynamic>>> getAvailableDriversOnce(
-      bool withLocation) async {
-    final snapshot = await _firestore
-        .collection(AppConstants.driversCollection)
-        .where('status', whereIn: [
-      AppConstants.driverStatusActive,
-    ]).get();
-
-    if (withLocation) {
-      // Return a list of maps containing driver IDs and their locations
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        return {
-          'id': doc.id,
-          'location': data.containsKey('currentLocation')
-              ? data['currentLocation']
-              : null,
-        };
-      }).toList();
-    } else {
-      // Return a list of maps containing all driver data
-      return snapshot.docs.map((doc) {
-        return {'id': doc.id, ...doc.data()};
-      }).toList();
+  // 3. Get All Drivers
+  Stream<List<Driver>> getAllDrivers() {
+    try {
+      return _firestore
+          .collection(AppConstants.driversCollection)
+          .snapshots()
+          .map((snapshot) {
+        return snapshot.docs.map((doc) {
+          return Driver.fromMap(doc.data(), doc.id);
+        }).toList();
+      });
+    } catch (e) {
+      print('Error fetching all drivers: $e');
+      return Stream.empty();
     }
   }
 
-  // Add a method to check driver availability
-  Future<bool> areDriversAvailable() async {
-    final availableDrivers = await getAvailableDriversOnce(false);
-    return availableDrivers.isNotEmpty;
+  // 4. Update a Driver
+  Future<void> updateDriver(
+      String? driverId, Map<String, dynamic> updates) async {
+    try {
+      await _firestore
+          .collection(AppConstants.driversCollection)
+          .doc(driverId)
+          .update(updates);
+    } catch (e) {
+      print('Error updating driver: $e');
+      rethrow;
+    }
   }
 
-  DocumentReference getDriver(String driverId) {
-    return _firestore.collection(AppConstants.driversCollection).doc(driverId);
+  // 5. Delete a Driver
+  Future<void> deleteDriver(String driverId) async {
+    try {
+      await _firestore
+          .collection(AppConstants.driversCollection)
+          .doc(driverId)
+          .delete();
+    } catch (e) {
+      print('Error deleting driver: $e');
+      rethrow;
+    }
   }
 
+  // 6. Update Driver Status
   Future<void> updateDriverStatus(String driverId, String status) async {
-    if (status == AppConstants.driverStatusActive) {
-      _taskRepository.processQueuedTasks();
+    try {
+      await _firestore
+          .collection(AppConstants.driversCollection)
+          .doc(driverId)
+          .update({'status': status});
+    } catch (e) {
+      print('Error updating driver status: $e');
+      rethrow;
     }
+  }
 
-    final driverDoc =
-        _firestore.collection(AppConstants.driversCollection).doc(driverId);
-    driverDoc.update({
-      'status': status,
-    });
+  // 7. Get Drivers by Status
+  Stream<List<Driver>> getDriversByStatus(String status) {
+    try {
+      return _firestore
+          .collection(AppConstants.driversCollection)
+          .where('status', isEqualTo: status)
+          .snapshots()
+          .map((snapshot) {
+        return snapshot.docs.map((doc) {
+          return Driver.fromMap(doc.data(), doc.id);
+        }).toList();
+      });
+    } catch (e) {
+      print('Error fetching drivers by status: $e');
+      return Stream.empty();
+    }
+  }
+
+  // 8. Update Driver Location
+  Future<void> updateDriverLocation(String driverId, GeoPoint location) async {
+    try {
+      await _firestore
+          .collection(AppConstants.driversCollection)
+          .doc(driverId)
+          .update({
+        'currentLocation': location,
+        'lastUpdated': FieldValue.serverTimestamp()
+      });
+    } catch (e) {
+      print('Error updating driver location: $e');
+      rethrow;
+    }
+  }
+
+  // 9. Get Assigned Tasks
+  Stream<List<Task>> getAssignedTasks(String driverId) {
+    try {
+      return _firestore
+          .collection(AppConstants.tasksCollection)
+          .where('assignedDriver', isEqualTo: driverId)
+          .snapshots()
+          .map((snapshot) {
+        return snapshot.docs.map((doc) {
+          return Task.fromMap(doc.data(), doc.id);
+        }).toList();
+      });
+    } catch (e) {
+      print('Error fetching assigned tasks: $e');
+      return Stream.empty();
+    }
+  }
+
+  // 9. Get Assigned Tasks
+  Stream<List<Task>> getAssignedTasksByStatus(String driverId, String? status) {
+    try {
+      return _firestore
+          .collection(AppConstants.tasksCollection)
+          .where('assignedDriver', isEqualTo: driverId)
+          .where('status', isEqualTo: status)
+          .snapshots()
+          .map((snapshot) {
+        return snapshot.docs.map((doc) {
+          return Task.fromMap(doc.data(), doc.id);
+        }).toList();
+      });
+    } catch (e) {
+      print('Error fetching assigned tasks: $e');
+      return Stream.empty();
+    }
+  }
+
+  // 10.Login Driver
+  Future<void> loginDriver(String driverId, forkliftId) async {
+    try {
+      // Update driver status to active and assign forklift
+      await updateDriver(driverId, {
+        'status': AppConstants.driverStatusActive,
+        'assignedForklift': forkliftId
+      });
+
+      // Update forklift status to in use and assign driver
+      await _firestore
+          .collection(AppConstants.forkliftsCollection)
+          .doc(forkliftId)
+          .update({
+        'status': AppConstants.forkliftStatusInUse,
+        'currentOperator': driverId
+      });
+    } catch (e) {
+      print('Error logging in driver: $e');
+      rethrow;
+    }
+  }
+
+  // 11. Assign Forklift to Driver
+  Future<void> assignForkliftToDriver(
+      String driverId, String forkliftId) async {
+    try {
+      await _firestore
+          .collection(AppConstants.driversCollection)
+          .doc(driverId)
+          .update({'assignedForklift': forkliftId});
+      await _firestore
+          .collection(AppConstants.forkliftsCollection)
+          .doc(forkliftId)
+          .update({
+        'status': AppConstants.forkliftStatusInUse,
+        "assignedDriver": driverId
+      });
+    } catch (e) {
+      print('Error assigning forklift to driver: $e');
+      rethrow;
+    }
+  }
+
+  // 12. Unassign Forklift from Driver
+  Future<void> unassignForkliftFromDriver(String driverId) async {
+    try {
+      final assignedForkliftId = await getAssignedForklift(driverId);
+
+      // Update driver's assigned forklift to null
+      await _firestore
+          .collection(AppConstants.driversCollection)
+          .doc(driverId)
+          .update({'assignedForklift': null});
+
+      // Update forklift status to available and remove assigned driver
+      await _firestore
+          .collection(AppConstants.forkliftsCollection)
+          .doc(assignedForkliftId)
+          .update({
+        "status": AppConstants.forkliftStatusAvailable,
+        "assignedDriver": null
+      });
+    } catch (e) {
+      print('Error unassigning forklift from driver: $e');
+      rethrow;
+    }
+  }
+
+  // 13. Get Assigned Forklift
+  Future<String?> getAssignedForklift(String driverId) async {
+    try {
+      final doc = await _firestore
+          .collection(AppConstants.driversCollection)
+          .doc(driverId)
+          .get();
+      if (doc.exists) {
+        return doc.data()?['assignedForklift'] as String?;
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching assigned forklift: $e');
+      rethrow;
+    }
+  }
+
+  // 14. Logout Driver
+  Future<void> logoutDriver(String driverId) async {
+    try {
+      // Fetch the driver's assigned forklift
+      String? forkliftId = await getAssignedForklift(driverId);
+      // Update driver status to inactive and remove assigned forklift
+      await _firestore
+          .collection(AppConstants.driversCollection)
+          .doc(driverId)
+          .update({
+        'status': AppConstants.driverStatusInactive,
+        "assignedForklift": null
+      });
+
+      // Update forklift status to available and remove assigned driver
+      await _firestore
+          .collection(AppConstants.forkliftsCollection)
+          .doc(forkliftId)
+          .update({
+        'status': AppConstants.forkliftStatusAvailable,
+        "currentOperator": null
+      });
+    } catch (e) {
+      print('Error logging out driver: $e');
+      rethrow;
+    }
+  }
+
+  // 15. Search Drivers by Name
+  Stream<List<Driver>> searchDriversByName(String name) {
+    try {
+      return _firestore
+          .collection(AppConstants.driversCollection)
+          .where('name', isGreaterThanOrEqualTo: name)
+          .where('name', isLessThan: '${name}z')
+          .snapshots()
+          .map((snapshot) {
+        return snapshot.docs.map((doc) {
+          return Driver.fromMap(doc.data(), doc.id);
+        }).toList();
+      });
+    } catch (e) {
+      print('Error searching drivers by name: $e');
+      return Stream.empty();
+    }
+  }
+
+  // 16. Update Driver Profile
+  Future<void> updateDriverProfile(
+      String driverId, Map<String, dynamic> updates) async {
+    try {
+      await _firestore
+          .collection(AppConstants.driversCollection)
+          .doc(driverId)
+          .update(updates);
+    } catch (e) {
+      print('Error updating driver profile: $e');
+      rethrow;
+    }
   }
 }

@@ -41,7 +41,7 @@ class AuthState extends ChangeNotifier {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      // Check in drivers collection first
+      // TODO: Implement a more scalable role management system
       var driverDoc = await _firestore
           .collection(AppConstants.driversCollection)
           .doc(user.uid)
@@ -53,7 +53,6 @@ class AuthState extends ChangeNotifier {
         return;
       }
 
-      // If not found in drivers, check supervisors collection
       var supervisorDoc = await _firestore
           .collection(AppConstants.supervisorsCollection)
           .doc(user.uid)

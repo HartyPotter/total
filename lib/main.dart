@@ -7,12 +7,13 @@ import 'package:total_flutter/features/auth/domain/models/auth_state.dart';
 import 'package:total_flutter/features/auth/presentation/screens/login_screen.dart';
 import 'package:total_flutter/features/driver/data/driver_repository.dart';
 import 'package:total_flutter/features/driver/presentation/screens/driver_home_screen.dart';
+import 'package:total_flutter/features/supervisor/data/supervisor_repository.dart';
 import 'package:total_flutter/features/supervisor/presentation/screens/supervisor_home_screen.dart';
 import 'package:total_flutter/features/notifications/data/notification_repository.dart';
 import 'package:total_flutter/core/theme/app_theme.dart';
 import 'package:total_flutter/core/constants/app_constants.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:total_flutter/features/driver_management/domain/models/driver.dart';
+import 'package:total_flutter/features/driver/domain/driver.dart';
 import 'package:total_flutter/features/task_management/data/task_repository.dart';
 
 @pragma('vm:entry-point')
@@ -32,11 +33,18 @@ void main() async {
   await Firebase.initializeApp();
   FirebaseFunctions.instanceFor(region: 'us-central1')
       .useFunctionsEmulator('10.0.2.2', 5001);
-  final authRepository = AuthRepository(); // Initialize AuthRepository
 
-  final taskRepository = TaskRepository(null);
-  final driverRepository = DriverRepository(taskRepository);
-  taskRepository.setDriverRepository(driverRepository);
+  // Initialize repositories
+  final driverRepository = DriverRepository();
+  final taskRepository = TaskRepository(driverRepository: driverRepository);
+  final supervisorRepository = SupervisorRepository();
+
+  // Initialize AuthRepository with all required repositories
+  final authRepository = AuthRepository(
+    taskRepository: taskRepository,
+    driverRepository: driverRepository,
+    supervisorRepository: supervisorRepository,
+  );
 
   // Initialize notifications
   final notificationRepo = NotificationRepository();
@@ -61,6 +69,8 @@ void main() async {
         Provider<AuthRepository>(create: (_) => authRepository),
         Provider<DriverRepository>(create: (_) => driverRepository),
         Provider<TaskRepository>(create: (_) => taskRepository),
+        Provider<SupervisorRepository>(create: (_) => supervisorRepository),
+        Provider<NotificationRepository>(create: (_) => notificationRepo),
       ],
       child: const MyApp(),
     ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:total_flutter/features/driver_management/domain/models/driver.dart';
+import 'package:total_flutter/features/driver/domain/driver.dart';
 import 'package:total_flutter/features/task_management/domain/models/task.dart';
 import 'package:total_flutter/features/forklift_management/domain/models/forklift.dart';
 import 'package:total_flutter/core/utils/app_utils.dart';
@@ -91,7 +91,7 @@ class DriversScreen extends StatelessWidget {
                         Text(driver.phoneNumber),
                         if (driver.currentLocation != null) ...[
                           const SizedBox(height: 4),
-                          Text('Current Location: ${driver.driverLocation}'),
+                          Text('Current Location: ${driver.currentLocation?.latitude}, ${driver.currentLocation?.longitude}'),
                         ],
                         if (driver.assignedForklift != null) ...[
                           const SizedBox(height: 4),

@@ -1,14 +1,14 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:total_flutter/features/driver/data/driver_repository.dart';
 import 'package:total_flutter/features/driver/presentation/screens/driver_home_screen.dart';
 import 'package:total_flutter/features/supervisor/presentation/screens/supervisor_home_screen.dart';
 import 'package:total_flutter/features/auth/data/auth_repository.dart';
-import 'package:total_flutter/features/driver_management/domain/models/driver.dart';
+import 'package:total_flutter/features/driver/domain/driver.dart';
 import 'package:total_flutter/features/forklift_management/domain/models/forklift.dart';
 import 'package:total_flutter/core/constants/app_constants.dart';
 import 'package:total_flutter/core/utils/app_utils.dart';
@@ -24,7 +24,6 @@ class LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _authRepository = AuthRepository();
   final _firestore = FirebaseFirestore.instance;
   String _selectedRole = 'driver';
   bool _isLoading = false;
@@ -45,6 +44,15 @@ class LoginScreenState extends State<LoginScreen> {
 
     if (!mounted) return null;
 
+    if (forkliftsSnapshot.docs.isEmpty) {
+      AppUtils.showSnackBar(
+        context,
+        'No available forklifts. Please try again later.',
+        isError: true,
+      );
+      return null;
+    }
+
     final forkliftId = await showDialog<String>(
       context: context,
       barrierDismissible: false,
@@ -53,34 +61,25 @@ class LoginScreenState extends State<LoginScreen> {
           title: const Text('Select Forklift'),
           content: SizedBox(
             width: double.maxFinite,
-            child: forkliftsSnapshot.docs.isEmpty
-                ? const Text('No available forklifts')
-                : ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: forkliftsSnapshot.docs.length,
-                    itemBuilder: (context, index) {
-                      final forklift = Forklift.fromMap(
-                        forkliftsSnapshot.docs[index].data(),
-                        forkliftsSnapshot.docs[index].id,
-                      );
-                      return ListTile(
-                        leading: const Icon(Icons.precision_manufacturing),
-                        title: Text(forklift.model),
-                        subtitle: Text('S/N: ${forklift.serialNumber}'),
-                        onTap: () {
-                          Navigator.of(context).pop(forklift.id);
-                        },
-                      );
-                    },
-                  ),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: forkliftsSnapshot.docs.length,
+              itemBuilder: (context, index) {
+                final forklift = Forklift.fromMap(
+                  forkliftsSnapshot.docs[index].data(),
+                  forkliftsSnapshot.docs[index].id,
+                );
+                return ListTile(
+                  leading: const Icon(Icons.precision_manufacturing),
+                  title: Text(forklift.model),
+                  subtitle: Text('S/N: ${forklift.serialNumber}'),
+                  onTap: () {
+                    Navigator.of(context).pop(forklift.id);
+                  },
+                );
+              },
+            ),
           ),
-          actions: [
-            if (forkliftsSnapshot.docs.isEmpty)
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Close'),
-              ),
-          ],
         );
       },
     );
@@ -95,16 +94,20 @@ class LoginScreenState extends State<LoginScreen> {
       });
 
       try {
-        final email = '${_usernameController.text}@gmail.com';
-        final userCredential = await _authRepository.signIn(
-          email,
+        final authRepository =
+            Provider.of<AuthRepository>(context, listen: false);
+        final driverRepository =
+            Provider.of<DriverRepository>(context, listen: false);
+        final username = _usernameController.text.trim();
+        final userCredential = await authRepository.signIn(
+          username,
           _passwordController.text,
           _selectedRole,
         );
 
         if (!mounted) return;
 
-        final user = await _authRepository.getCurrentUser(
+        final user = await authRepository.getCurrentUser(
           userCredential.user!.uid,
           _selectedRole,
         );
@@ -127,28 +130,12 @@ class LoginScreenState extends State<LoginScreen> {
               return;
             }
 
-// Update driver's assigned forklift in Firestore
-            await _firestore
-                .collection(AppConstants.driversCollection)
-                .doc(userCredential.user!.uid)
-                .update({
-              'assignedForklift':
-                  forkliftId, // Use ID instead of DocumentReference
-              'status': AppConstants.driverStatusActive,
-            });
-
-// Update forklift status and current operator
-            await _firestore
-                .collection(AppConstants.forkliftsCollection)
-                .doc(forkliftId)
-                .update({
-              'status': AppConstants.forkliftStatusInUse,
-              'currentOperator': userCredential
-                  .user!.uid, // Use ID instead of DocumentReference
-            });
+            // Update driver's assigned forklift in Firestore
+            await driverRepository.loginDriver(
+                userCredential.user!.uid, forkliftId);
 
             // Refresh driver data with updated forklift
-            final updatedDriver = await _authRepository.getCurrentUser(
+            final updatedDriver = await authRepository.getCurrentUser(
               userCredential.user!.uid,
               _selectedRole,
             ) as Driver;
@@ -177,6 +164,8 @@ class LoginScreenState extends State<LoginScreen> {
             backgroundColor: Colors.red,
           ),
         );
+      } catch (e) {
+        debugPrint('Error during login: $e');
       } finally {
         if (mounted) {
           setState(() {
@@ -234,15 +223,15 @@ class LoginScreenState extends State<LoginScreen> {
                             TextFormField(
                               controller: _usernameController,
                               decoration: InputDecoration(
-                                labelText: 'Username',
+                                labelText: 'Email',
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                prefixIcon: const Icon(Icons.person),
+                                prefixIcon: const Icon(Icons.email),
                               ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Please enter your username';
+                                  return 'Please enter your email';
                                 }
                                 return null;
                               },
