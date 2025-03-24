@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:total_flutter/features/map/map_page.dart';
-import 'package:total_flutter/features/task_management/presentation/screens/task_list_screen.dart';
+import 'package:total_flutter/features/task_management/presentation/screens/supervisor_task_list_screen.dart';
 import 'package:total_flutter/features/task_management/presentation/screens/task_assignment_screen.dart';
 import 'package:total_flutter/features/supervisor/presentation/screens/drivers_screen.dart';
 import 'package:total_flutter/features/supervisor/presentation/screens/forklifts_screen.dart';
@@ -9,6 +9,7 @@ import 'package:total_flutter/features/auth/presentation/screens/login_screen.da
 import 'package:total_flutter/features/auth/data/auth_repository.dart';
 import 'package:total_flutter/features/task_management/data/task_repository.dart';
 import 'package:total_flutter/features/driver/data/driver_repository.dart';
+import 'package:total_flutter/features/profile/presentation/screens/profile_screen.dart';
 import 'package:total_flutter/core/utils/app_utils.dart';
 
 class SupervisorHomeScreen extends StatefulWidget {
@@ -32,8 +33,31 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_getTitle()),
+        leading: IconButton(
+          iconSize: 26,
+          icon: const Icon(Icons.account_circle_outlined),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => widget.supervisor is Map<String, dynamic>
+                    ? ProfileScreen(
+                        user: widget.supervisor as Map<String, dynamic>,
+                        isDriver: false,
+                        showBackButton: true,
+                      )
+                    : ProfileScreen(
+                        user: widget.supervisor,
+                        isDriver: false,
+                        showBackButton: true,
+                      ),
+              ),
+            );
+          },
+        ),
         actions: [
           IconButton(
+            iconSize: 26,
             icon: const Icon(Icons.logout),
             onPressed: () async {
               final confirmed = await AppUtils.showConfirmationDialog(
@@ -73,8 +97,10 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
           : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.black, // Set to desired color
-        unselectedItemColor: Colors.grey, // Set to desired color
+        selectedItemColor: Theme.of(context).colorScheme.primary,
+        unselectedItemColor:
+            Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+        type: BottomNavigationBarType.fixed, // Needed for more than 3 items
         onTap: (index) {
           setState(() {
             _selectedIndex = index;
@@ -95,7 +121,7 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.map),
-            label: 'Map', // New Map tab
+            label: 'Map',
           ),
         ],
       ),
@@ -111,26 +137,24 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
       case 2:
         return 'Forklifts';
       case 3:
-        return 'Map'; // Title for the Map tab
+        return 'Map';
       default:
         return 'Tasks';
     }
   }
 
   Widget _getBody() {
-    final taskRepository = Provider.of<TaskRepository>(context);
-
     switch (_selectedIndex) {
       case 0:
-        return TaskListScreen();
+        return const SupervisorTaskListScreen();
       case 1:
         return DriversScreen();
       case 2:
         return ForkliftsScreen();
       case 3:
-        return const MapScreen(); // Display the MapScreen
+        return const MapScreen();
       default:
-        return TaskListScreen();
+        return const SupervisorTaskListScreen();
     }
   }
 }

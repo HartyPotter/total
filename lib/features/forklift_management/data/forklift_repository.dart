@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:total_flutter/core/constants/app_constants.dart';
-import 'package:total_flutter/features/driver/data/driver_repository.dart';
-import 'package:total_flutter/features/task_management/domain/models/task.dart';
+// import 'package:total_flutter/features/driver/data/driver_repository.dart';
+// import 'package:total_flutter/features/task_management/domain/models/task.dart';
 import 'package:total_flutter/features/forklift_management/domain/models/forklift.dart';
 
 class ForkliftRepository {
@@ -31,8 +31,13 @@ class ForkliftRepository {
     }
   }
 
-  Future<Forklift?> getForkliftById(String forkliftId) async {
+  Future<Forklift?> getForkliftById(String? forkliftId) async {
     try {
+      // Return null if forkliftId is null or empty
+      if (forkliftId == null || forkliftId.isEmpty) {
+        return null;
+      }
+
       final doc = await _firestore
           .collection(AppConstants.forkliftsCollection)
           .doc(forkliftId)
@@ -40,10 +45,10 @@ class ForkliftRepository {
       if (doc.exists) {
         return Forklift.fromMap(doc.data() as Map<String, dynamic>, doc.id);
       }
-      throw Exception('Forklift not found');
+      return null;
     } catch (e) {
       print('Error fetching forklift by ID: $e');
-      rethrow;
+      return null;
     }
   }
 

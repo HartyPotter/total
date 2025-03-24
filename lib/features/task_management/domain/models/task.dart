@@ -136,7 +136,6 @@ class Task implements FirebaseModel {
 
   // Create Task from JSON
   factory Task.fromJson(Map<String, dynamic> json) {
-    final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
     return Task(
       id: json['id'],

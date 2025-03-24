@@ -1,5 +1,3 @@
-import 'package:total_flutter/core/constants/app_constants.dart';
-
 class TaskList {
   // Location Nodes: Map node IDs to friendly names
   static const Map<String, String> taskNodes = {

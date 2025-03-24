@@ -155,6 +155,7 @@ class DriverRepository {
           .collection(AppConstants.tasksCollection)
           .where('assignedDriver', isEqualTo: driverId)
           .where('status', isEqualTo: status)
+          .orderBy('createdAt')
           .snapshots()
           .map((snapshot) {
         return snapshot.docs.map((doc) {

@@ -1,45 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+import 'package:total_flutter/core/widgets/app_button.dart';
+import 'package:total_flutter/core/widgets/entity_card.dart';
+import 'package:total_flutter/features/driver/data/driver_repository.dart';
 import 'package:total_flutter/features/driver/domain/driver.dart';
+import 'package:total_flutter/features/driver/presentation/screens/driver_details_screen.dart';
+import 'package:total_flutter/features/task_management/data/task_repository.dart';
 import 'package:total_flutter/features/task_management/domain/models/task.dart';
-import 'package:total_flutter/features/forklift_management/domain/models/forklift.dart';
-import 'package:total_flutter/core/utils/app_utils.dart';
-import 'package:total_flutter/core/constants/app_constants.dart';
-import 'package:total_flutter/core/widgets/modern_card.dart';
 
 class DriversScreen extends StatelessWidget {
-  DriversScreen({super.key});
-
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  Future<Task?> _fetchCurrentTask(String taskId) async {
-    final doc = await _firestore
-        .collection(AppConstants.tasksCollection)
-        .doc(taskId)
-        .get();
-    if (doc.exists) {
-      return Task.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-    }
-    return null;
-  }
-
-  Future<Forklift?> _fetchForklift(String forkliftId) async {
-    final doc = await _firestore
-        .collection(AppConstants.forkliftsCollection)
-        .doc(forkliftId)
-        .get();
-    if (doc.exists) {
-      return Forklift.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-    }
-    return null;
-  }
+  const DriversScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection(AppConstants.driversCollection)
-          .snapshots(),
+    final driverRepository = Provider.of<DriverRepository>(context);
+    final taskRepository = Provider.of<TaskRepository>(context);
+
+    return StreamBuilder<List<Driver>>(
+      stream: driverRepository.getAllDrivers(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
@@ -49,178 +27,100 @@ class DriversScreen extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final drivers = snapshot.data!.docs;
+        final drivers = snapshot.data!;
 
         if (drivers.isEmpty) {
-          return const Center(child: Text('No drivers found'));
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.person_off,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No drivers found',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ],
+            ),
+          );
         }
 
         return ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: drivers.length,
           itemBuilder: (context, index) {
-            final driver = Driver.fromMap(
-              drivers[index].data() as Map<String, dynamic>,
-              drivers[index].id,
-            );
-            return ModernCard(
-              margin: EdgeInsets.zero,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: AppUtils.getDriverStatusColor(
-                        driver.status.toJson(),
-                      ).withOpacity(0.1),
-                      child: Icon(
-                        Icons.person,
-                        color: AppUtils.getDriverStatusColor(
-                          driver.status.toJson(),
-                        ),
-                      ),
-                    ),
-                    title: Text(
-                      driver.name,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(driver.email),
-                        Text(driver.phoneNumber),
-                        if (driver.currentLocation != null) ...[
-                          const SizedBox(height: 4),
-                          Text('Current Location: ${driver.currentLocation?.latitude}, ${driver.currentLocation?.longitude}'),
-                        ],
-                        if (driver.assignedForklift != null) ...[
-                          const SizedBox(height: 4),
-                          FutureBuilder<Forklift?>(
-                            future: _fetchForklift(driver.assignedForklift!),
-                            builder: (context, forkliftSnapshot) {
-                              print('Driver: ${driver.name}');
-                              print(
-                                  'Assigned Forklift Reference: ${driver.assignedForklift}');
-                              print('Forklift Data: ${forkliftSnapshot.data}');
-                              if (forkliftSnapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return const Text('Loading forklift info...');
-                              }
-                              final forklift = forkliftSnapshot.data;
-                              if (forklift == null) {
-                                print('No forklift data found');
+            final driver = drivers[index];
 
-                                return const SizedBox.shrink();
-                              }
-                              print(
-                                  'Forklift Details - Model: ${forklift.model}, Serial: ${forklift.serialNumber}');
+            // Simplified details map with minimal information
+            final Map<String, String> details = {
+              'Status': driver.status.toJson(),
+            };
 
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppUtils.getForkliftStatusColor(
-                                    forklift.status.toJson(),
-                                  ).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: AppUtils.getForkliftStatusColor(
-                                      forklift.status.toJson(),
-                                    ),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Assigned Forklift: ${forklift.model} (${forklift.serialNumber})',
-                                  style: TextStyle(
-                                    color: AppUtils.getForkliftStatusColor(
-                                      forklift.status.toJson(),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppUtils.getDriverStatusColor(
-                                    driver.status.toJson())
-                                .withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: AppUtils.getDriverStatusColor(
-                                  driver.status.toJson()),
-                            ),
-                          ),
-                          child: Text(
-                            'Status: ${driver.status.toJson()}',
-                            style: TextStyle(
-                              color: AppUtils.getDriverStatusColor(
-                                  driver.status.toJson()),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    isThreeLine: true,
-                  ),
-                  if (driver.currentTask != null) ...[
-                    const SizedBox(height: 4),
-                    FutureBuilder<Task?>(
-                      future: _fetchCurrentTask(driver.currentTask!),
-                      builder: (context, taskSnapshot) {
-                        if (taskSnapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Center(child: CircularProgressIndicator()),
-                          );
-                        }
+            // Only show task info if driver has an active task
+            if (driver.currentTask != null && driver.currentTask!.isNotEmpty) {
+              return FutureBuilder<Task?>(
+                future: taskRepository.getTaskById(driver.currentTask),
+                builder: (context, taskSnapshot) {
+                  if (taskSnapshot.connectionState == ConnectionState.waiting) {
+                    // Show a loading indicator only for this card
+                    return _buildDriverCard(context, driver, details, index);
+                  }
 
-                        final task = taskSnapshot.data;
-                        if (task == null) return const SizedBox.shrink();
+                  if (taskSnapshot.hasData && taskSnapshot.data != null) {
+                    details['Current Task'] = taskSnapshot.data!.name;
+                  }
 
-                        return Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Divider(),
-                              Text(
-                                'Current Task',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: 8),
-                              Text('Task: ${task.name}'),
-                              Text('From: ${task.source}'),
-                              Text('To: ${task.destination}'),
-                              Text('Status: ${task.status.toJson()}'),
-                              if (task.startTime != null)
-                                Text(
-                                    'Started: ${AppUtils.formatDateTime(task.startTime!)}'),
-                              if (task.estimatedTime > 0)
-                                Text(
-                                    'Estimated Time: ${task.estimatedTime} minutes'),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ],
-              ),
-            );
+                  return _buildDriverCard(context, driver, details, index);
+                },
+              );
+            }
+
+            return _buildDriverCard(context, driver, details, index);
           },
         );
       },
+    );
+  }
+
+  Widget _buildDriverCard(BuildContext context, Driver driver,
+      Map<String, String> details, int index) {
+    return EntityCard(
+      title: driver.name,
+      subtitle: driver.email,
+      status: driver.status.toJson(),
+      icon: Icons.person,
+      details: details,
+      index: index,
+      actions: [
+        AppButton(
+          text: 'View Details',
+          type: AppButtonType.outline,
+          size: AppButtonSize.small,
+          leadingIcon: Icons.visibility,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DriverDetailsScreen(driver: driver),
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 8),
+        AppButton(
+          text: 'Assign Task',
+          type: AppButtonType.primary,
+          size: AppButtonSize.small,
+          leadingIcon: Icons.assignment_add,
+          onPressed: () {
+            // Navigate to task assignment screen
+          },
+        ),
+      ],
     );
   }
 }

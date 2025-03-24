@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:total_flutter/features/task_management/domain/models/task.dart';
-import 'package:total_flutter/features/task_management/data/task_repository.dart';
-import 'package:total_flutter/features/auth/presentation/screens/login_screen.dart';
-import 'package:total_flutter/features/auth/data/auth_repository.dart';
-import 'package:total_flutter/features/driver/data/driver_repository.dart';
-import 'package:total_flutter/core/constants/app_constants.dart';
 import 'package:total_flutter/core/utils/app_utils.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:total_flutter/features/auth/data/auth_repository.dart';
+import 'package:total_flutter/features/auth/presentation/screens/login_screen.dart';
+import 'package:total_flutter/features/driver/data/driver_repository.dart';
 import 'package:total_flutter/features/driver/domain/driver.dart';
-import 'package:total_flutter/features/location/location_service.dart'; // Import the LocationService
+import 'package:total_flutter/features/profile/presentation/screens/profile_screen.dart';
+import 'package:total_flutter/features/task_management/presentation/screens/driver_task_list_screen.dart';
 
 class DriverHomeScreen extends StatefulWidget {
   final Driver driver;
@@ -17,24 +14,10 @@ class DriverHomeScreen extends StatefulWidget {
   const DriverHomeScreen({super.key, required this.driver});
 
   @override
-  DriverHomeScreenState createState() => DriverHomeScreenState();
+  State<DriverHomeScreen> createState() => _DriverHomeScreenState();
 }
 
-class DriverHomeScreenState extends State<DriverHomeScreen> {
-  String? _selectedFilter;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final supervisorNames = <String, String>{};
-  late LocationService _locationService;
-
-  Future<void> _fetchSupervisorNames() async {
-    final supervisorsSnapshot =
-        await _firestore.collection(AppConstants.supervisorsCollection).get();
-
-    for (final doc in supervisorsSnapshot.docs) {
-      supervisorNames[doc.id] = doc['name'];
-    }
-  }
-
+class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Future<void> _logout() async {
     final confirmed = await AppUtils.showConfirmationDialog(
       context,
@@ -51,10 +34,15 @@ class DriverHomeScreenState extends State<DriverHomeScreen> {
       final authRepository =
           Provider.of<AuthRepository>(context, listen: false);
 
-      // Update the forklift's currentOperator to null
+      // Update the forklift's currentOperator to null and driver status
       await driverRepository.logoutDriver(widget.driver.id);
 
       await authRepository.signOut();
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
     } catch (e) {
       if (!mounted) return;
       AppUtils.showSnackBar(
@@ -66,207 +54,35 @@ class DriverHomeScreenState extends State<DriverHomeScreen> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _fetchSupervisorNames();
-    _locationService = LocationService(widget.driver.id);
-    _locationService.startLocationTracking();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final taskRepository = Provider.of<TaskRepository>(context);
-    final authRepository = Provider.of<AuthRepository>(context);
-    final driverRepository = Provider.of<DriverRepository>(context);
-
     return Scaffold(
       appBar: AppBar(
-        title: Text('Welcome, ${widget.driver.name}'),
+        title: const Text('My Tasks'),
+        leading: IconButton(
+          iconSize: 26,
+          icon: const Icon(Icons.account_circle_outlined),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ProfileScreen(
+                  user: widget.driver,
+                  isDriver: true,
+                  showBackButton: true,
+                ),
+              ),
+            );
+          },
+        ),
         actions: [
           IconButton(
+            iconSize: 26,
             icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await _logout();
-              if (!mounted) return;
-
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-              );
-            },
+            onPressed: _logout,
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                FilterChip(
-                  label: const Text('All'),
-                  selected: _selectedFilter == 'all',
-                  onSelected: (bool selected) {
-                    setState(() {
-                      _selectedFilter = null;
-                    });
-                  },
-                ),
-                FilterChip(
-                  label: const Text('Pending'),
-                  selected: _selectedFilter == AppConstants.taskStatusPending,
-                  onSelected: (bool selected) {
-                    setState(() {
-                      _selectedFilter = AppConstants.taskStatusPending;
-                    });
-                  },
-                ),
-                FilterChip(
-                  label: const Text('In Progress'),
-                  selected:
-                      _selectedFilter == AppConstants.taskStatusInProgress,
-                  onSelected: (bool selected) {
-                    setState(() {
-                      _selectedFilter = AppConstants.taskStatusInProgress;
-                    });
-                  },
-                ),
-                FilterChip(
-                  label: const Text('Completed'),
-                  selected: _selectedFilter == AppConstants.taskStatusCompleted,
-                  onSelected: (bool selected) {
-                    setState(() {
-                      _selectedFilter = AppConstants.taskStatusCompleted;
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: StreamBuilder<List<Task>>(
-              stream: driverRepository.getAssignedTasksByStatus(
-                widget.driver.id,
-                _selectedFilter,
-              ),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final tasks = snapshot.data!;
-                if (tasks.isEmpty) {
-                  return const Center(child: Text('No tasks found'));
-                }
-
-                return ListView.builder(
-                  itemCount: tasks.length,
-                  itemBuilder: (context, index) {
-                    final task = tasks[index];
-                    return Card(
-                      margin: const EdgeInsets.all(8.0),
-                      child: Column(
-                        children: [
-                          ListTile(
-                            title: Text(task.name,
-                                style: const TextStyle(fontSize: 20)),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('From: ${task.source}'),
-                                Text('To: ${task.destination}'),
-                                Text('Status: ${task.status.toJson()}'),
-                                Text(
-                                    'Assigned by: ${supervisorNames[task.createdBy] ?? 'Unknown Supervisor'}'), // Use pre-fetched name
-                                if (task.startTime != null)
-                                  Text(
-                                      'Started: ${AppUtils.formatDateTime(task.startTime!)}'),
-                                if (task.endTime != null)
-                                  Text(
-                                      'Completed: ${AppUtils.formatDateTime(task.endTime!)}'),
-                                if (task.duration > 0)
-                                  Text(
-                                      'Duration: ${AppUtils.formatDuration(task.duration)}'),
-                              ],
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                if (task.status == TaskStatus.pending) ...[
-                                  ElevatedButton(
-                                    onPressed: () async {
-                                      try {
-                                        await taskRepository
-                                            .acceptTask(task.id);
-
-                                        if (!mounted) return;
-                                        AppUtils.showSnackBar(
-                                          context,
-                                          AppConstants.successTaskUpdated,
-                                        );
-                                      } catch (e) {
-                                        if (!mounted) return;
-                                        AppUtils.showSnackBar(
-                                          context,
-                                          '${AppConstants.errorTaskUpdate}: $e',
-                                          isError: true,
-                                        );
-                                      }
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue,
-                                    ),
-                                    child: const Text('Accept Task'),
-                                  ),
-                                  const SizedBox(width: 8),
-                                ],
-                                if (task.status == TaskStatus.inProgress)
-                                  ElevatedButton(
-                                    onPressed: () async {
-                                      try {
-                                        await taskRepository.completeTask(
-                                          task.id,
-                                        );
-                                        if (!mounted) return;
-                                        AppUtils.showSnackBar(
-                                          context,
-                                          AppConstants.successTaskUpdated,
-                                        );
-                                      } catch (e) {
-                                        if (!mounted) return;
-                                        AppUtils.showSnackBar(
-                                          context,
-                                          '${AppConstants.errorTaskUpdate}: $e',
-                                          isError: true,
-                                        );
-                                      }
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green,
-                                    ),
-                                    child: const Text('Complete Task'),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+      body: DriverTaskListScreen(driverId: widget.driver.id),
     );
   }
 }

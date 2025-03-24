@@ -66,6 +66,30 @@ class AppUtils {
     }
   }
 
+  static Color getColorForStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+      case 'in_progress':
+        return Colors.blue;
+      case 'completed':
+        return Colors.green;
+      case 'active':
+        return Colors.green;
+      case 'inactive':
+        return Colors.grey;
+      case 'busy':
+        return Colors.orange;
+      case 'available':
+        return Colors.green;
+      case 'in_use':
+        return Colors.blue;
+      case 'maintenance':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
   // Show snackbar
   static void showSnackBar(BuildContext context, String message,
       {bool isError = false}) {

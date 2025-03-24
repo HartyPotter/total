@@ -7,6 +7,7 @@ import 'package:total_flutter/features/auth/domain/models/auth_state.dart';
 import 'package:total_flutter/features/auth/presentation/screens/login_screen.dart';
 import 'package:total_flutter/features/driver/data/driver_repository.dart';
 import 'package:total_flutter/features/driver/presentation/screens/driver_home_screen.dart';
+import 'package:total_flutter/features/forklift_management/data/forklift_repository.dart';
 import 'package:total_flutter/features/supervisor/data/supervisor_repository.dart';
 import 'package:total_flutter/features/supervisor/presentation/screens/supervisor_home_screen.dart';
 import 'package:total_flutter/features/notifications/data/notification_repository.dart';
@@ -38,6 +39,7 @@ void main() async {
   final driverRepository = DriverRepository();
   final taskRepository = TaskRepository(driverRepository: driverRepository);
   final supervisorRepository = SupervisorRepository();
+  final forkliftRepository = ForkliftRepository();
 
   // Initialize AuthRepository with all required repositories
   final authRepository = AuthRepository(
@@ -70,15 +72,16 @@ void main() async {
         Provider<DriverRepository>(create: (_) => driverRepository),
         Provider<TaskRepository>(create: (_) => taskRepository),
         Provider<SupervisorRepository>(create: (_) => supervisorRepository),
+        Provider<ForkliftRepository>(create: (_) => forkliftRepository),
         Provider<NotificationRepository>(create: (_) => notificationRepo),
       ],
-      child: const MyApp(),
+      child: const TotalFlutterApp(),
     ),
   );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class TotalFlutterApp extends StatelessWidget {
+  const TotalFlutterApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -87,6 +90,7 @@ class MyApp extends StatelessWidget {
       title: 'Total Flutter',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.system,
       home: Consumer<AuthState>(
         builder: (context, authState, _) {
           if (authState.isLoading) {
@@ -119,6 +123,9 @@ class MyApp extends StatelessWidget {
           }
         },
       ),
+      routes: {
+        '/login': (context) => const LoginScreen(),
+      },
     );
   }
 }
