@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:total_flutter/core/providers/providers.dart';
 import 'package:total_flutter/core/widgets/app_button.dart';
 import 'package:total_flutter/core/widgets/entity_card.dart';
-import 'package:total_flutter/features/driver/data/driver_repository.dart';
 import 'package:total_flutter/features/driver/domain/driver.dart';
 import 'package:total_flutter/features/driver/presentation/screens/driver_details_screen.dart';
-import 'package:total_flutter/features/task_management/data/task_repository.dart';
+import 'package:total_flutter/features/supervisor/data/supervisor_provider.dart';
 import 'package:total_flutter/features/task_management/domain/models/task.dart';
 
-class DriversScreen extends StatelessWidget {
+class DriversScreen extends ConsumerWidget {
   const DriversScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final driverRepository = Provider.of<DriverRepository>(context);
-    final taskRepository = Provider.of<TaskRepository>(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final driverRepository = ref.watch(driverRepositoryProvider);
+    final taskRepository = ref.watch(taskRepositoryProvider);
+    final supervisorState = ref.watch(supervisorProvider);
 
     return StreamBuilder<List<Driver>>(
       stream: driverRepository.getAllDrivers(),

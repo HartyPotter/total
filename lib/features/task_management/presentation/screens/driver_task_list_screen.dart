@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:total_flutter/core/constants/app_constants.dart';
+import 'package:total_flutter/core/providers/providers.dart';
 import 'package:total_flutter/core/theme/app_theme.dart';
 import 'package:total_flutter/core/widgets/app_button.dart';
-import 'package:total_flutter/features/task_management/data/task_repository.dart';
+import 'package:total_flutter/features/driver/data/driver_provider.dart';
 import 'package:total_flutter/features/task_management/domain/models/task.dart';
-import 'package:total_flutter/features/driver/data/driver_repository.dart';
 import 'package:total_flutter/features/task_management/presentation/widgets/task_card.dart';
 import 'package:total_flutter/core/utils/app_utils.dart';
 
-class DriverTaskListScreen extends StatefulWidget {
+class DriverTaskListScreen extends ConsumerStatefulWidget {
   final String driverId; // Driver ID is now required
 
   const DriverTaskListScreen({super.key, required this.driverId});
 
   @override
-  State<DriverTaskListScreen> createState() => _DriverTaskListScreenState();
+  ConsumerState<DriverTaskListScreen> createState() =>
+      _DriverTaskListScreenState();
 }
 
-class _DriverTaskListScreenState extends State<DriverTaskListScreen>
+class _DriverTaskListScreenState extends ConsumerState<DriverTaskListScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _scrollController = ScrollController();
@@ -38,7 +39,8 @@ class _DriverTaskListScreenState extends State<DriverTaskListScreen>
 
   @override
   Widget build(BuildContext context) {
-    final driverRepository = Provider.of<DriverRepository>(context);
+    final driverRepository = ref.watch(driverRepositoryProvider);
+    final driverState = ref.watch(driverProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -72,7 +74,7 @@ class _DriverTaskListScreenState extends State<DriverTaskListScreen>
     );
   }
 
-  Widget _buildTaskList(DriverRepository driverRepository, String? statusFilter) {
+  Widget _buildTaskList(driverRepository, String? statusFilter) {
     return StreamBuilder<List<Task>>(
       stream: driverRepository.getAssignedTasksByStatus(
           widget.driverId, statusFilter),
@@ -148,13 +150,16 @@ class _DriverTaskListScreenState extends State<DriverTaskListScreen>
                         : Icons.check,
                     onPressed: () async {
                       try {
-                        final taskRepository = Provider.of<TaskRepository>(
-                            context,
-                            listen: false);
+                        final taskRepository = ref.read(taskRepositoryProvider);
+                        final driverNotifier =
+                            ref.read(driverProvider.notifier);
+
                         if (task.status == TaskStatus.pending) {
                           await taskRepository.acceptTask(task.id);
+                          await driverNotifier.startTask(task.id);
                         } else if (task.status == TaskStatus.inProgress) {
                           await taskRepository.completeTask(task.id);
+                          await driverNotifier.completeTask(task.id);
                         }
 
                         if (!mounted) return;

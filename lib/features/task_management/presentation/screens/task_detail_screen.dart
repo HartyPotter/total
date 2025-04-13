@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:total_flutter/core/constants/app_constants.dart';
+import 'package:total_flutter/core/providers/providers.dart';
 import 'package:total_flutter/core/theme/app_theme.dart';
 import 'package:total_flutter/core/utils/animation_utils.dart';
 import 'package:total_flutter/core/utils/app_utils.dart';
@@ -9,11 +9,11 @@ import 'package:total_flutter/core/widgets/app_button.dart';
 import 'package:total_flutter/core/widgets/status_badge.dart';
 import 'package:total_flutter/features/driver/domain/driver.dart';
 import 'package:total_flutter/features/map/map_widget.dart';
-import 'package:total_flutter/features/task_management/data/task_repository.dart';
+import 'package:total_flutter/features/supervisor/data/supervisor_provider.dart';
 import 'package:total_flutter/features/task_management/domain/models/task.dart';
 import 'package:total_flutter/features/task_management/domain/models/task_list.dart';
 
-class TaskDetailScreen extends StatefulWidget {
+class TaskDetailScreen extends ConsumerStatefulWidget {
   final String taskId;
 
   const TaskDetailScreen({
@@ -22,14 +22,13 @@ class TaskDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<TaskDetailScreen> createState() => _TaskDetailScreenState();
+  ConsumerState<TaskDetailScreen> createState() => _TaskDetailScreenState();
 }
 
-class _TaskDetailScreenState extends State<TaskDetailScreen> {
+class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   Task? _task;
-  Driver? _driver;
-  bool _isLoading = true;
   String? _errorMessage;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -44,8 +43,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         _errorMessage = null;
       });
 
-      final taskRepository =
-          Provider.of<TaskRepository>(context, listen: false);
+      final taskRepository = ref.read(taskRepositoryProvider);
       final task = await taskRepository.getTaskById(widget.taskId);
 
       if (task == null) {
@@ -56,24 +54,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         return;
       }
 
-      Driver? driver;
-      if (task.assignedDriver != null) {
-        final driverDoc = await FirebaseFirestore.instance
-            .collection(AppConstants.driversCollection)
-            .doc(task.assignedDriver)
-            .get();
-
-        if (driverDoc.exists) {
-          driver = Driver.fromMap(
-            driverDoc.data() as Map<String, dynamic>,
-            driverDoc.id,
-          );
-        }
-      }
-
       setState(() {
         _task = task;
-        _driver = driver;
         _isLoading = false;
       });
     } catch (error) {
@@ -109,6 +91,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
     final task = _task!;
     final statusColor = AppUtils.getTaskStatusColor(task.status.toJson());
+
+    // Get driver information if task is assigned
+    Driver? driver;
+    if (task.assignedDriver != null) {
+      // Try to get driver from supervisor provider's cache first
+      final supervisorState = ref.watch(supervisorProvider);
+      if (supervisorState.driverCache.containsKey(task.assignedDriver)) {
+        driver = supervisorState.driverCache[task.assignedDriver];
+      } else {
+        // If not in cache, fetch it (this will update the cache)
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ref.read(supervisorProvider.notifier).getDriver(task.assignedDriver!);
+        });
+      }
+    }
 
     return AnimationUtils.animateFormItem(
       SingleChildScrollView(
@@ -225,7 +222,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             ),
 
             // Driver details
-            if (_driver != null)
+            if (driver != null)
               _buildInfoSection(
                 context,
                 'Assigned Driver',
@@ -234,21 +231,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     context,
                     Icons.person_outline,
                     'Name',
-                    _driver!.name,
+                    driver.name,
                   ),
                   _buildInfoRow(
                     context,
                     Icons.phone_outlined,
                     'Phone',
-                    _driver!.phoneNumber,
+                    driver.phoneNumber,
                   ),
                   _buildInfoRow(
                     context,
                     Icons.circle_outlined,
                     'Status',
-                    _driver!.status.toJson(),
+                    driver.status.toJson(),
                     valueColor:
-                        AppUtils.getDriverStatusColor(_driver!.status.toJson()),
+                        AppUtils.getDriverStatusColor(driver.status.toJson()),
                   ),
                 ],
               ),

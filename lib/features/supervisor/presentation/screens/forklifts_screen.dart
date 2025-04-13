@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:total_flutter/core/providers/providers.dart';
 import 'package:total_flutter/features/forklift_management/domain/models/forklift.dart';
 import 'package:total_flutter/core/utils/app_utils.dart';
 import 'package:total_flutter/core/constants/app_constants.dart';
 import 'package:total_flutter/core/widgets/modern_card.dart';
 
-class ForkliftsScreen extends StatelessWidget {
-  ForkliftsScreen({super.key});
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+class ForkliftsScreen extends ConsumerWidget {
+  const ForkliftsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection(AppConstants.forkliftsCollection)
-          .snapshots(),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final forkliftRepository = ref.watch(forkliftRepositoryProvider);
+    final driverRepository = ref.watch(driverRepositoryProvider);
+
+    return StreamBuilder<List<Forklift>>(
+      stream: forkliftRepository.getAllForkliftsStream(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
@@ -24,7 +25,7 @@ class ForkliftsScreen extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final forklifts = snapshot.data!.docs;
+        final forklifts = snapshot.data!;
 
         if (forklifts.isEmpty) {
           return const Center(child: Text('No forklifts found'));
@@ -34,10 +35,7 @@ class ForkliftsScreen extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           itemCount: forklifts.length,
           itemBuilder: (context, index) {
-            final forklift = Forklift.fromMap(
-              forklifts[index].data() as Map<String, dynamic>,
-              forklifts[index].id,
-            );
+            final forklift = forklifts[index];
             return ModernCard(
               margin: EdgeInsets.zero,
               child: ListTile(
@@ -63,20 +61,17 @@ class ForkliftsScreen extends StatelessWidget {
                     Text('Location: ${forklift.location}'),
                     Text('Capacity: ${forklift.capacity} Pallets'),
                     if (forklift.currentOperator != null)
-                      FutureBuilder<DocumentSnapshot>(
-                        future: _firestore
-                            .collection(AppConstants.driversCollection)
-                            .doc(forklift.currentOperator!)
-                            .get(),
+                      FutureBuilder<dynamic>(
+                        future: driverRepository
+                            .getDriverById(forklift.currentOperator!),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
                             return const Text('Loading operator...');
                           }
-                          if (snapshot.hasData && snapshot.data!.exists) {
-                            final data =
-                                snapshot.data!.data() as Map<String, dynamic>;
-                            return Text('Operator: ${data['name']}');
+                          if (snapshot.hasData) {
+                            final driver = snapshot.data;
+                            return Text('Operator: ${driver.name}');
                           }
                           return const SizedBox.shrink();
                         },

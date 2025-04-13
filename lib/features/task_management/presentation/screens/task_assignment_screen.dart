@@ -1,31 +1,24 @@
 // import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:total_flutter/core/constants/app_constants.dart';
+import 'package:total_flutter/core/providers/providers.dart';
+import 'package:total_flutter/core/utils/app_utils.dart';
+import 'package:total_flutter/core/widgets/modern_card.dart';
+import 'package:total_flutter/features/supervisor/data/supervisor_provider.dart';
 import 'package:total_flutter/features/task_management/domain/models/task.dart';
 import 'package:total_flutter/features/task_management/domain/models/task_list.dart';
-import 'package:total_flutter/features/task_management/data/task_repository.dart';
-import 'package:total_flutter/features/driver/data/driver_repository.dart';
-import 'package:total_flutter/core/constants/app_constants.dart';
-import 'package:total_flutter/core/utils/app_utils.dart';
-// import 'package:total_flutter/core/utils/path_finding_utils.dart';
-import 'package:total_flutter/core/widgets/modern_card.dart';
 
-class TaskAssignmentScreen extends StatefulWidget {
-  final TaskRepository taskRepository;
-  final DriverRepository driverRepository;
-
-  const TaskAssignmentScreen({
-    super.key,
-    required this.taskRepository,
-    required this.driverRepository,
-  });
+class TaskAssignmentScreen extends ConsumerStatefulWidget {
+  const TaskAssignmentScreen({super.key});
 
   @override
-  TaskAssignmentScreenState createState() => TaskAssignmentScreenState();
+  ConsumerState<TaskAssignmentScreen> createState() =>
+      TaskAssignmentScreenState();
 }
 
-class TaskAssignmentScreenState extends State<TaskAssignmentScreen> {
-  // final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+class TaskAssignmentScreenState extends ConsumerState<TaskAssignmentScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _nameController = TextEditingController();
@@ -89,7 +82,8 @@ class TaskAssignmentScreenState extends State<TaskAssignmentScreen> {
           isQueued: false, // Will be determined by Cloud Function
         );
 
-        await widget.taskRepository.createTask(task);
+        // Use Supervisor provider to create task
+        await ref.read(supervisorProvider.notifier).createTask(task.toMap());
 
         if (!mounted) return;
         AppUtils.showSnackBar(

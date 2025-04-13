@@ -1,51 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:total_flutter/core/constants/app_constants.dart';
+import 'package:total_flutter/core/providers/providers.dart';
 import 'package:total_flutter/core/theme/app_theme.dart';
 import 'package:total_flutter/core/utils/animation_utils.dart';
 import 'package:total_flutter/core/utils/app_utils.dart';
 import 'package:total_flutter/core/widgets/status_badge.dart';
 import 'package:total_flutter/features/driver/domain/driver.dart';
+import 'package:total_flutter/features/supervisor/data/supervisor_provider.dart';
 import 'package:total_flutter/features/task_management/data/task_repository.dart';
 import 'package:total_flutter/features/task_management/domain/models/task.dart';
 import 'package:total_flutter/features/task_management/presentation/screens/task_detail_screen.dart';
 
-class SupervisorTaskListScreen extends StatefulWidget {
+class SupervisorTaskListScreen extends ConsumerStatefulWidget {
   const SupervisorTaskListScreen({super.key});
 
   @override
-  State<SupervisorTaskListScreen> createState() =>
+  ConsumerState<SupervisorTaskListScreen> createState() =>
       _SupervisorTaskListScreenState();
 }
 
-class _SupervisorTaskListScreenState extends State<SupervisorTaskListScreen> {
+class _SupervisorTaskListScreenState
+    extends ConsumerState<SupervisorTaskListScreen> {
   String? _selectedFilter;
-  final _driverCache = <String, Driver>{};
-
-  Future<Driver?> _fetchDriver(String driverId) async {
-    // Check cache first
-    if (_driverCache.containsKey(driverId)) {
-      return _driverCache[driverId];
-    }
-
-    // Fetch from Firestore if not in cache
-    final doc = await FirebaseFirestore.instance
-        .collection(AppConstants.driversCollection)
-        .doc(driverId)
-        .get();
-
-    if (doc.exists) {
-      final driver = Driver.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-      _driverCache[driverId] = driver; // Add to cache
-      return driver;
-    }
-    return null;
-  }
 
   @override
   Widget build(BuildContext context) {
-    final taskRepository = Provider.of<TaskRepository>(context);
+    final taskRepository = ref.watch(taskRepositoryProvider);
+    final supervisorState = ref.watch(supervisorProvider);
 
     return Column(
       children: [
@@ -218,67 +201,77 @@ class _SupervisorTaskListScreenState extends State<SupervisorTaskListScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: AppTheme.spacingXs),
+          Text('${task.source} → ${task.destination}'),
+          const SizedBox(height: AppTheme.spacingXs),
           Row(
             children: [
               Icon(
-                Icons.location_on_outlined,
-                size: 14,
-                color: Theme.of(context).textTheme.bodyMedium?.color,
+                Icons.timer_outlined,
+                size: 16,
+                color: Theme.of(context).textTheme.bodySmall?.color,
               ),
               const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  '${task.source} → ${task.destination}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                  overflow: TextOverflow.ellipsis,
-                ),
+              Text(
+                '${task.estimatedTime} mins',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(width: AppTheme.spacingM),
+              Icon(
+                Icons.inventory_2_outlined,
+                size: 16,
+                color: Theme.of(context).textTheme.bodySmall?.color,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '${task.numberOfPallets} pallets',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
           ),
-          if (task.assignedDriver != null)
-            FutureBuilder<Driver?>(
-              future: _fetchDriver(task.assignedDriver!),
-              builder: (context, snapshot) {
-                final driverName = snapshot.data?.name ?? 'Loading...';
-                return Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.person_outline,
-                        size: 14,
-                        color: Theme.of(context).textTheme.bodyMedium?.color,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        driverName,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
         ],
       ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
+      trailing: Wrap(
+        spacing: AppTheme.spacingXs,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           StatusBadge(
             text: task.status.toJson(),
             color: statusColor,
-            isOutlined: true,
           ),
-          const SizedBox(height: 4),
-          Text(
-            task.startTime != null
-                ? AppUtils.formatTime(task.startTime!)
-                : 'Not started',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          if (task.assignedDriver != null) ...[
+            FutureBuilder<Driver?>(
+              future: _getDriver(task.assignedDriver!),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  );
+                }
+                final driver = snapshot.data;
+                return driver != null
+                    ? Text(
+                        driver.name,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      )
+                    : const SizedBox.shrink();
+              },
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Future<Driver?> _getDriver(String driverId) async {
+    // Try to get driver from supervisor provider's cache first
+    final supervisorState = ref.read(supervisorProvider);
+    if (supervisorState.driverCache.containsKey(driverId)) {
+      return supervisorState.driverCache[driverId];
+    }
+
+    // If not in cache, trigger a fetch which will update the cache
+    return await ref.read(supervisorProvider.notifier).getDriver(driverId);
   }
 }

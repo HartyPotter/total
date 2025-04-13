@@ -1,21 +1,20 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:total_flutter/core/constants/app_constants.dart';
+import 'package:total_flutter/core/providers/providers.dart';
 import 'package:total_flutter/features/auth/data/auth_repository.dart';
 import 'package:total_flutter/features/auth/domain/models/auth_state.dart';
 import 'package:total_flutter/features/auth/presentation/screens/login_screen.dart';
-import 'package:total_flutter/features/driver/data/driver_repository.dart';
+import 'package:total_flutter/features/driver/data/driver_provider.dart';
+import 'package:total_flutter/features/driver/domain/driver.dart';
 import 'package:total_flutter/features/driver/presentation/screens/driver_home_screen.dart';
-import 'package:total_flutter/features/forklift_management/data/forklift_repository.dart';
-import 'package:total_flutter/features/supervisor/data/supervisor_repository.dart';
+import 'package:total_flutter/features/supervisor/data/supervisor_provider.dart';
 import 'package:total_flutter/features/supervisor/presentation/screens/supervisor_home_screen.dart';
 import 'package:total_flutter/features/notifications/data/notification_repository.dart';
 import 'package:total_flutter/core/theme/app_theme.dart';
-import 'package:total_flutter/core/constants/app_constants.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:total_flutter/features/driver/domain/driver.dart';
-import 'package:total_flutter/features/task_management/data/task_repository.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -35,19 +34,6 @@ void main() async {
   FirebaseFunctions.instanceFor(region: 'us-central1')
       .useFunctionsEmulator('10.0.2.2', 5001);
 
-  // Initialize repositories
-  final driverRepository = DriverRepository();
-  final taskRepository = TaskRepository(driverRepository: driverRepository);
-  final supervisorRepository = SupervisorRepository();
-  final forkliftRepository = ForkliftRepository();
-
-  // Initialize AuthRepository with all required repositories
-  final authRepository = AuthRepository(
-    taskRepository: taskRepository,
-    driverRepository: driverRepository,
-    supervisorRepository: supervisorRepository,
-  );
-
   // Initialize notifications
   final notificationRepo = NotificationRepository();
   await notificationRepo.initialize();
@@ -65,34 +51,34 @@ void main() async {
   });
 
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthState()),
-        Provider<AuthRepository>(create: (_) => authRepository),
-        Provider<DriverRepository>(create: (_) => driverRepository),
-        Provider<TaskRepository>(create: (_) => taskRepository),
-        Provider<SupervisorRepository>(create: (_) => supervisorRepository),
-        Provider<ForkliftRepository>(create: (_) => forkliftRepository),
-        Provider<NotificationRepository>(create: (_) => notificationRepo),
-      ],
-      child: const TotalFlutterApp(),
+    const ProviderScope(
+      child: TotalFlutterApp(),
     ),
   );
 }
 
-class TotalFlutterApp extends StatelessWidget {
+// Auth state provider
+final authStateProvider = ChangeNotifierProvider<AuthState>((ref) {
+  return AuthState();
+});
+
+class TotalFlutterApp extends ConsumerWidget {
   const TotalFlutterApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authStateProvider);
+    final driverNotifier = ref.read(driverProvider.notifier);
+    final supervisorNotifier = ref.read(supervisorProvider.notifier);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Total Flutter',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
-      home: Consumer<AuthState>(
-        builder: (context, authState, _) {
+      home: Builder(
+        builder: (context) {
           if (authState.isLoading) {
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
@@ -103,19 +89,26 @@ class TotalFlutterApp extends StatelessWidget {
             return const LoginScreen();
           }
 
+          final userId = authState.currentUser?.uid ?? '';
+
           // User is authenticated, show appropriate screen based on role
           switch (authState.userRole) {
             case AppConstants.roleDriver:
-              return DriverHomeScreen(
-                driver: Driver.fromMap(
-                  authState.userData!,
-                  authState.currentUser?.uid ?? '',
-                ),
-              );
+              // Initialize driver provider with user ID
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                driverNotifier.initialize(userId);
+              });
+
+              return const DriverHomeScreen();
+
             case AppConstants.roleSupervisor:
-              return SupervisorHomeScreen(
-                supervisor: authState.userData,
-              );
+              // Initialize supervisor provider with user ID
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                supervisorNotifier.initialize(userId);
+              });
+
+              return const SupervisorHomeScreen();
+
             default:
               // If role is not recognized, sign out and show login screen
               authState.signOut();

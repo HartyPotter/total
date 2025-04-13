@@ -66,6 +66,15 @@ class ForkliftRepository {
     }
   }
 
+  Stream<List<Forklift>> getAllForkliftsStream() {
+    return _firestore
+        .collection(AppConstants.forkliftsCollection)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Forklift.fromMap(doc.data(), doc.id))
+            .toList());
+  }
+
   Future<void> updateForkliftStatus(String forkliftId, String status) async {
     await _firestore
         .collection(AppConstants.forkliftsCollection)

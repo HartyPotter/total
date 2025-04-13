@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:total_flutter/core/theme/app_theme.dart';
+import 'package:total_flutter/features/driver/data/driver_provider.dart';
+import 'package:total_flutter/features/driver/domain/driver.dart';
 
-class MapWidget extends StatefulWidget {
+class MapWidget extends ConsumerStatefulWidget {
   final (double, double) sourceLocation; // Tuple for source location
   final (double, double) destinationLocation; // Tuple for destination location
   final String taskId;
@@ -18,10 +21,10 @@ class MapWidget extends StatefulWidget {
   });
 
   @override
-  State<MapWidget> createState() => _MapWidgetState();
+  ConsumerState<MapWidget> createState() => _MapWidgetState();
 }
 
-class _MapWidgetState extends State<MapWidget> {
+class _MapWidgetState extends ConsumerState<MapWidget> {
   final MapController _mapController = MapController();
   final List<Marker> _markers = [];
   final List<Polyline> _polylines = [];
@@ -75,29 +78,6 @@ class _MapWidgetState extends State<MapWidget> {
       ),
     );
 
-    // Add a driver marker if driverId is provided
-    if (widget.driverId != null) {
-      final driverLatLng = LatLng(
-        sourceLatLng.latitude +
-            (destLatLng.latitude - sourceLatLng.latitude) * 0.4,
-        sourceLatLng.longitude +
-            (destLatLng.longitude - sourceLatLng.longitude) * 0.4,
-      );
-
-      _markers.add(
-        Marker(
-          point: driverLatLng,
-          width: 40,
-          height: 40,
-          child: const Icon(
-            Icons.directions_car,
-            color: Colors.green,
-            size: 40,
-          ),
-        ),
-      );
-    }
-
     // Fit the map to show all markers and the route
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _mapController.fitCamera(
@@ -111,6 +91,46 @@ class _MapWidgetState extends State<MapWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // If driverId is provided, get driver data from provider
+    Driver? driver;
+    if (widget.driverId != null) {
+      final driverState = ref.watch(driverProvider);
+
+      if (driverState.driver?.id == widget.driverId) {
+        driver = driverState.driver;
+      } else {
+        // For tasks assigned to a different driver, the cache in supervisor provider would be used
+        // This is handled in the TaskDetailScreen
+      }
+
+      // Add driver marker if location is available
+      if (driver?.currentLocation != null) {
+        final driverLatLng = LatLng(
+          driver!.currentLocation!.latitude,
+          driver.currentLocation!.longitude,
+        );
+
+        // Remove existing driver marker if any
+        _markers.removeWhere((marker) =>
+            marker.child is Icon &&
+            (marker.child as Icon).color == Colors.green);
+
+        // Add new driver marker
+        _markers.add(
+          Marker(
+            point: driverLatLng,
+            width: 40,
+            height: 40,
+            child: const Icon(
+              Icons.directions_car,
+              color: Colors.green,
+              size: 40,
+            ),
+          ),
+        );
+      }
+    }
+
     return Stack(
       children: [
         // OpenStreetMap
@@ -180,7 +200,7 @@ class _MapWidgetState extends State<MapWidget> {
                     ),
                   ],
                 ),
-                if (widget.driverId != null) ...[
+                if (driver != null) ...[
                   const SizedBox(height: AppTheme.spacingXs),
                   Row(
                     children: [

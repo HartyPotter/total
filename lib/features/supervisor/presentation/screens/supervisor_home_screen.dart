@@ -1,34 +1,89 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:total_flutter/core/providers/providers.dart';
 import 'package:total_flutter/features/map/map_page.dart';
 import 'package:total_flutter/features/task_management/presentation/screens/supervisor_task_list_screen.dart';
 import 'package:total_flutter/features/task_management/presentation/screens/task_assignment_screen.dart';
 import 'package:total_flutter/features/supervisor/presentation/screens/drivers_screen.dart';
 import 'package:total_flutter/features/supervisor/presentation/screens/forklifts_screen.dart';
 import 'package:total_flutter/features/auth/presentation/screens/login_screen.dart';
-import 'package:total_flutter/features/auth/data/auth_repository.dart';
-import 'package:total_flutter/features/task_management/data/task_repository.dart';
-import 'package:total_flutter/features/driver/data/driver_repository.dart';
+import 'package:total_flutter/features/supervisor/data/supervisor_provider.dart';
 import 'package:total_flutter/features/profile/presentation/screens/profile_screen.dart';
 import 'package:total_flutter/core/utils/app_utils.dart';
 
-class SupervisorHomeScreen extends StatefulWidget {
-  final dynamic supervisor;
-
-  const SupervisorHomeScreen({super.key, required this.supervisor});
+class SupervisorHomeScreen extends ConsumerStatefulWidget {
+  const SupervisorHomeScreen({super.key});
 
   @override
-  State<SupervisorHomeScreen> createState() => _SupervisorHomeScreenState();
+  ConsumerState<SupervisorHomeScreen> createState() =>
+      _SupervisorHomeScreenState();
 }
 
-class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
+class _SupervisorHomeScreenState extends ConsumerState<SupervisorHomeScreen> {
   int _selectedIndex = 0;
+
+  Future<void> _logout() async {
+    final confirmed = await AppUtils.showConfirmationDialog(
+      context,
+      title: 'Logout',
+      message: 'Are you sure you want to logout?',
+    );
+
+    if (!confirmed || !mounted) return;
+
+    try {
+      final authRepository = ref.read(authRepositoryProvider);
+      await authRepository.signOut();
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppUtils.showSnackBar(
+        context,
+        'Error during logout: $e',
+        isError: true,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final authRepository = Provider.of<AuthRepository>(context);
-    final taskRepository = Provider.of<TaskRepository>(context);
-    final driverRepository = Provider.of<DriverRepository>(context);
+    final supervisorState = ref.watch(supervisorProvider);
+
+    // Show loading indicator while supervisor data is being loaded
+    if (supervisorState.isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Show error message if there was an error loading supervisor data
+    if (supervisorState.error != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Error: ${supervisorState.error}',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _logout,
+                child: const Text('Logout'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final supervisor = supervisorState.supervisor;
 
     return Scaffold(
       appBar: AppBar(
@@ -40,17 +95,11 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => widget.supervisor is Map<String, dynamic>
-                    ? ProfileScreen(
-                        user: widget.supervisor as Map<String, dynamic>,
-                        isDriver: false,
-                        showBackButton: true,
-                      )
-                    : ProfileScreen(
-                        user: widget.supervisor,
-                        isDriver: false,
-                        showBackButton: true,
-                      ),
+                builder: (context) => ProfileScreen(
+                  user: supervisor,
+                  isDriver: false,
+                  showBackButton: true,
+                ),
               ),
             );
           },
@@ -59,22 +108,7 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
           IconButton(
             iconSize: 26,
             icon: const Icon(Icons.logout),
-            onPressed: () async {
-              final confirmed = await AppUtils.showConfirmationDialog(
-                context,
-                title: 'Logout',
-                message: 'Are you sure you want to logout?',
-              );
-
-              if (!confirmed || !mounted) return;
-
-              await authRepository.signOut();
-              if (!mounted) return;
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-              );
-            },
+            onPressed: _logout,
           ),
         ],
       ),
@@ -85,10 +119,7 @@ class _SupervisorHomeScreenState extends State<SupervisorHomeScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => TaskAssignmentScreen(
-                      taskRepository: taskRepository,
-                      driverRepository: driverRepository,
-                    ),
+                    builder: (context) => const TaskAssignmentScreen(),
                   ),
                 );
               },

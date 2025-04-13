@@ -1,26 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:total_flutter/core/constants/app_constants.dart';
+import 'package:total_flutter/core/providers/providers.dart';
 import 'package:total_flutter/core/utils/app_utils.dart';
 // import 'package:total_flutter/core/widgets/entity_card.dart';
 import 'package:total_flutter/core/widgets/info_section.dart';
 // import 'package:total_flutter/core/widgets/app_button.dart';
 // import 'package:total_flutter/features/driver/data/driver_repository.dart';
 import 'package:total_flutter/features/driver/domain/driver.dart';
-import 'package:total_flutter/features/forklift_management/data/forklift_repository.dart';
 import 'package:total_flutter/features/forklift_management/domain/models/forklift.dart';
-import 'package:total_flutter/features/task_management/data/task_repository.dart';
 import 'package:total_flutter/features/task_management/domain/models/task.dart';
 
-class DriverDetailsScreen extends StatelessWidget {
+class DriverDetailsScreen extends ConsumerWidget {
   final Driver driver;
 
   const DriverDetailsScreen({super.key, required this.driver});
 
   @override
-  Widget build(BuildContext context) {
-    final forkliftRepository = Provider.of<ForkliftRepository>(context);
-    final taskRepository = Provider.of<TaskRepository>(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final forkliftRepository = ref.watch(forkliftRepositoryProvider);
+    final taskRepository = ref.watch(taskRepositoryProvider);
 
     return Scaffold(
       appBar: AppBar(

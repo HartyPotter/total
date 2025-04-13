@@ -2,25 +2,25 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
-import 'package:total_flutter/features/driver/data/driver_repository.dart';
-import 'package:total_flutter/features/driver/presentation/screens/driver_home_screen.dart';
-import 'package:total_flutter/features/supervisor/presentation/screens/supervisor_home_screen.dart';
-import 'package:total_flutter/features/auth/data/auth_repository.dart';
-import 'package:total_flutter/features/driver/domain/driver.dart';
-import 'package:total_flutter/features/forklift_management/domain/models/forklift.dart';
 import 'package:total_flutter/core/constants/app_constants.dart';
+import 'package:total_flutter/core/providers/providers.dart';
 import 'package:total_flutter/core/utils/app_utils.dart';
+import 'package:total_flutter/features/driver/data/driver_provider.dart';
+import 'package:total_flutter/features/driver/presentation/screens/driver_home_screen.dart';
+import 'package:total_flutter/features/forklift_management/domain/models/forklift.dart';
+import 'package:total_flutter/features/supervisor/data/supervisor_provider.dart';
+import 'package:total_flutter/features/supervisor/presentation/screens/supervisor_home_screen.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  LoginScreenState createState() => LoginScreenState();
+  ConsumerState<LoginScreen> createState() => LoginScreenState();
 }
 
-class LoginScreenState extends State<LoginScreen> {
+class LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -94,10 +94,8 @@ class LoginScreenState extends State<LoginScreen> {
       });
 
       try {
-        final authRepository =
-            Provider.of<AuthRepository>(context, listen: false);
-        final driverRepository =
-            Provider.of<DriverRepository>(context, listen: false);
+        final authRepository = ref.read(authRepositoryProvider);
+        final driverRepository = ref.read(driverRepositoryProvider);
         final username = _usernameController.text.trim();
         final userCredential = await authRepository.signIn(
           username,
@@ -127,6 +125,9 @@ class LoginScreenState extends State<LoginScreen> {
                 'Please select a forklift to continue',
                 isError: true,
               );
+              setState(() {
+                _isLoading = false;
+              });
               return;
             }
 
@@ -134,25 +135,23 @@ class LoginScreenState extends State<LoginScreen> {
             await driverRepository.loginDriver(
                 userCredential.user!.uid, forkliftId);
 
-            // Refresh driver data with updated forklift
-            final updatedDriver = await authRepository.getCurrentUser(
-              userCredential.user!.uid,
-              _selectedRole,
-            ) as Driver;
-
+            // Initialize the driver provider (will be done by main.dart)
+            // Navigate to driver home screen
             if (!mounted) return;
 
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => DriverHomeScreen(driver: updatedDriver),
+                builder: (context) => const DriverHomeScreen(),
               ),
             );
           } else {
+            // Initialize the supervisor provider (will be done by main.dart)
+            // Navigate to supervisor home screen
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => SupervisorHomeScreen(supervisor: user),
+                builder: (context) => const SupervisorHomeScreen(),
               ),
             );
           }
@@ -166,6 +165,11 @@ class LoginScreenState extends State<LoginScreen> {
         );
       } catch (e) {
         debugPrint('Error during login: $e');
+        AppUtils.showSnackBar(
+          context,
+          'Error during login: $e',
+          isError: true,
+        );
       } finally {
         if (mounted) {
           setState(() {

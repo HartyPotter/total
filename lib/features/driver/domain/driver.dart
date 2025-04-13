@@ -111,4 +111,11 @@ class Driver implements FirebaseModel {
 
   String get driverLocation =>
       currentLocation?.toString() ?? 'Unknown Location';
+
+  // (double, double) get driverLocationCoordinates {
+  //   if (currentLocation == null) {
+  //     return (0, 0);
+  //   }
+  //   return (currentLocation!.latitude, currentLocation!.longitude);
+  // }
 }
